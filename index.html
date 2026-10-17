@@ -1802,8 +1802,12 @@ async function loadChart(code,tf){
       <div style="font-size:13px;color:var(--tx2);">無法取得K線資料</div>
       <div style="font-size:11px;">週末/假日請等開盤後再試</div>
     </div>`;
-    const ce=g('chartEl'),me=g('mChartEl');
-    const wrap=ce?.parentElement;if(wrap&&!wrap.querySelector('.no-data-msg')){const d=document.createElement('div');d.className='no-data-msg';d.style.cssText='position:absolute;inset:0;';d.innerHTML=noDataMsg;wrap.appendChild(d);}
+    // 電腦版
+    const ce=g('chartEl');
+    const wrap=ce?.parentElement;if(wrap&&!wrap.querySelector('.no-data-msg')){const nd=document.createElement('div');nd.className='no-data-msg';nd.style.cssText='position:absolute;inset:0;';nd.innerHTML=noDataMsg;wrap.appendChild(nd);}
+    // 手機版
+    const me=g('mChartEl');
+    const mwrap=me?.parentElement;if(mwrap&&!mwrap.querySelector('.no-data-msg')){const nd=document.createElement('div');nd.className='no-data-msg';nd.style.cssText='position:absolute;inset:0;z-index:3;';nd.innerHTML=noDataMsg;mwrap.appendChild(nd);}
     return;
   }
   // 清除無資料提示
@@ -1830,15 +1834,17 @@ async function loadChart(code,tf){
   if(spinEl)spinEl.style.display='none';
   // mobile (if visible)
   if(isMob()){
-    const minst=makeChart('mChartEl');
-    if(minst){mChart=minst.c;mCS=minst.cs;mVS=minst.vs;mMA5=minst.ma5s;mMA10=minst.ma10s;mMA20=minst.ma20s;mVWAP_D=minst.vwapDs;mVWAP_W=minst.vwapWs;}
-    const ms=g('mChartSpin');if(ms)ms.style.display='flex';
-    applyCandles(mCS,mVS,candles);
-    applyMA(mMA5,mMA10,mMA20,candles,'mMaLegend');
-    if(showVWAP)applyVWAP(mVWAP_D,mVWAP_W,candles,sd[code]?.price,true);
-    else{try{if(mVWAP_D)mVWAP_D.setData([]);if(mVWAP_W)mVWAP_W.setData([]);}catch(e){}}
-    if(mChart)mChart.timeScale().fitContent();
-    if(ms)ms.style.display='none';
+    const ms=g('mChartSpin');
+    try{
+      const minst=makeChart('mChartEl');
+      if(minst){mChart=minst.c;mCS=minst.cs;mVS=minst.vs;mMA5=minst.ma5s;mMA10=minst.ma10s;mMA20=minst.ma20s;mVWAP_D=minst.vwapDs;mVWAP_W=minst.vwapWs;}
+      applyCandles(mCS,mVS,candles);
+      applyMA(mMA5,mMA10,mMA20,candles,'mMaLegend');
+      if(showVWAP){try{applyVWAP(mVWAP_D,mVWAP_W,candles,sd[code]?.price,true);}catch(e){}}
+      else{try{if(mVWAP_D)mVWAP_D.setData([]);if(mVWAP_W)mVWAP_W.setData([]);}catch(e){}}
+      if(mChart)mChart.timeScale().fitContent();
+    }catch(e){console.error('mobile chart error',e);}
+    finally{if(ms)ms.style.display='none';}
   }
 }
 
