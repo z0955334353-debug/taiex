@@ -1267,7 +1267,7 @@ async function twseDayCandles(code){
       const parts=dateStr.split('/');
       if(parts.length<3)continue;
       const year=parseInt(parts[0])+1911,month=parseInt(parts[1]),day=parseInt(parts[2]);
-      const t=Math.floor(new Date(year,month-1,day,13,30,0).getTime()/1000); // 收盤時間
+      const t=Math.floor(Date.UTC(year,month-1,day)/1000); // UTC midnight 秒數（lw-charts & VWAP 兼容）
       const o=parseFloat(row[3]?.replace(/,/g,''));
       const h=parseFloat(row[4]?.replace(/,/g,''));
       const l=parseFloat(row[5]?.replace(/,/g,''));
@@ -1287,7 +1287,7 @@ async function twseDayCandles(code){
         for(const row of j2.data){
           const parts=row[0].split('/');if(parts.length<3)continue;
           const year=parseInt(parts[0])+1911,month=parseInt(parts[1]),day=parseInt(parts[2]);
-          const t=Math.floor(new Date(year,month-1,day,13,30,0).getTime()/1000);
+          const t=Math.floor(Date.UTC(year,month-1,day)/1000);
           const o=parseFloat(row[3]?.replace(/,/g,'')),h=parseFloat(row[4]?.replace(/,/g,'')),l=parseFloat(row[5]?.replace(/,/g,'')),c=parseFloat(row[6]?.replace(/,/g,''));
           const v=parseInt(row[1]?.replace(/,/g,''))||0;
           if(!isNaN(o)&&!isNaN(h)&&!isNaN(l)&&!isNaN(c))out.unshift({time:t,open:o,high:h,low:l,close:c,volume:Math.round(v/1000)});
@@ -1324,10 +1324,7 @@ async function tpexDayCandles(code){
           const parts=dateStr.split('/');if(parts.length<3)continue;
           let year=parseInt(parts[0]);if(year<1900)year+=1911;
           const month=parseInt(parts[1]),day=parseInt(parts[2]);
-          const t=Math.floor(new Date(year,month-1,day,14,30,0).getTime()/1000);
-          // 找這個code的行
-          const codeIdx=row.indexOf?row.findIndex?.((v,i)=>i===0?false:String(v)===code):–1;
-          // TPEx的格式不同，整行可能就是這支股票的資料
+          const t=Math.floor(Date.UTC(year,month-1,day)/1000); // UTC midnight
           const o=parseFloat(String(row[3]||'').replace(/,/g,''));
           const h=parseFloat(String(row[4]||'').replace(/,/g,''));
           const l=parseFloat(String(row[5]||'').replace(/,/g,''));
@@ -1348,7 +1345,7 @@ async function tpexDayCandles(code){
           const parts=ds.split('/');if(parts.length<3)continue;
           let year=parseInt(parts[0]);if(year<1900)year+=1911;
           const month=parseInt(parts[1]),day=parseInt(parts[2]);
-          const t=Math.floor(new Date(year,month-1,day,14,30,0).getTime()/1000);
+          const t=Math.floor(Date.UTC(year,month-1,day)/1000);
           const c=parseFloat(String(row['收盤']||row.ClosingPrice||'0').replace(/,/g,''));
           const o=parseFloat(String(row['開盤']||row.OpeningPrice||c).replace(/,/g,''));
           const h=parseFloat(String(row['最高']||row.HighestPrice||c).replace(/,/g,''));
@@ -1358,7 +1355,10 @@ async function tpexDayCandles(code){
         }
       }
     }
-    return out.length?out.sort((a,b)=>a.time-b.time):null;
+    if(!out.length)return null;
+    // 去重 + 排序
+    const seen=new Set();
+    return out.filter(x=>{if(seen.has(x.time))return false;seen.add(x.time);return true;}).sort((a,b)=>a.time-b.time);
   }catch(e){return null;}
 }
 
