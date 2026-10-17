@@ -1186,9 +1186,14 @@ async function twseQ(code,ex='tse'){
     const j=await r.json();
     if(!j.msgArray?.length)return null;
     const d=j.msgArray[0];
-    if(!d.n&&!d.c)return null; // 完全空的資料（找不到此代號）
-    const price=parseFloat(d.z)||parseFloat(d.y)||parseFloat(d.c)||0,prev=parseFloat(d.y)||parseFloat(d.c)||0,chg=prev?price-prev:0;
-    return{code,name:d.n||NAMES[code]||code,price,open:parseFloat(d.o)||0,
+    // 名稱和代號都沒有才算找不到（週末價格可能是空的但仍是有效股票）
+    if(!d.n&&!d.c&&!d.y)return null;
+    const price=parseFloat(d.z)||parseFloat(d.y)||parseFloat(d.c)||0;
+    const prev=parseFloat(d.y)||parseFloat(d.c)||0;
+    const chg=prev?price-prev:0;
+    const name=d.n||NAMES[code]||code;
+    // 若有名稱但沒有價格（週末），仍回傳—後續備援會補齊價格
+    return{code,name,price,open:parseFloat(d.o)||0,
       high:parseFloat(d.h)||0,low:parseFloat(d.l)||0,prev,
       vol:parseInt(d.v)||0,bid:parseFloat(d.b?.split('_')?.[0])||0,ask:parseFloat(d.a?.split('_')?.[0])||0,
       change:chg,changePct:prev?chg/prev*100:0,isLive:false,ex};
@@ -1297,14 +1302,25 @@ async function fetchStockName(code){
       if(name)return{name,ex:'tse',data:j.data};
     }
   }catch(e){}
-  // 再試 TPEx 上櫃
+  // 再試 TPEx 上櫃（用最近交易日）
   try{
-    const r2=await fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${new Date().toISOString().slice(0,10).replace(/-/g,'/')}&stockNo=${code}`);
+    const n2=new Date();
+    let d3=new Date(n2);
+    if(d3.getDay()===0)d3.setDate(d3.getDate()-2);
+    else if(d3.getDay()===6)d3.setDate(d3.getDate()-1);
+    const ds2=`${d3.getFullYear()}/${String(d3.getMonth()+1).padStart(2,'0')}/${String(d3.getDate()).padStart(2,'0')}`;
+    const r2=await fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${ds2}&stockNo=${code}&_=${Date.now()}`);
     const j2=await r2.json();
     if(j2?.length){
-      const row=j2.find(x=>x.SecuritiesCompanyCode===code||x['股票代號']===code);
-      if(row){const name=row['股票名稱']||row.CompanyName;if(name)return{name,ex:'otc',data:null};}
+      const row=j2.find(x=>x.SecuritiesCompanyCode===code||x['股票代號']===code||String(x.SecuritiesCompanyCode)===String(code));
+      if(row){const name=row['股票名稱']||row.CompanyName||row.Name;if(name)return{name,ex:'otc',data:null};}
     }
+  }catch(e){}
+  // 最後備援：直接查 TPEx 全量資料
+  try{
+    await loadStockDB();
+    const found=stockDB.find(x=>x.code===code);
+    if(found)return{name:found.name,ex:'otc',data:null};
   }catch(e){}
   return null;
 }
@@ -2411,9 +2427,9 @@ let stockDB=[]; // [{code,name,ex}]
 let acSelIdx=-1;
 
 async function loadStockDB(){
-  if(stockDB.length>0)return;
+  if(stockDB.length>100)return; // 已有足夠資料就跳過
   try{
-    // TWSE 上市
+    // TWSE 上市（STOCK_DAY_ALL 週末也有資料）
     const r1=await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
     const j1=await r1.json();
     if(Array.isArray(j1))j1.forEach(s=>{
@@ -2421,14 +2437,25 @@ async function loadStockDB(){
     });
   }catch(e){}
   try{
-    // TPEx 上櫃
-    const r2=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
+    // TPEx 上櫃（列表 API，週末仍有全量清單）
+    const r2=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes');
     const j2=await r2.json();
-    if(Array.isArray(j2))j2.forEach(s=>{
-      const code=s.SecuritiesCompanyCode||s['股票代號'];
-      const name=(s.CompanyName||s['股票名稱']||'').trim();
-      if(code&&name)stockDB.push({code,name,ex:'上櫃'});
-    });
+    if(Array.isArray(j2)&&j2.length>0){
+      j2.forEach(s=>{
+        const code=s.SecuritiesCompanyCode||s['股票代號'];
+        const name=(s.CompanyName||s['股票名稱']||'').trim();
+        if(code&&name&&!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:'上櫃'});
+      });
+    } else {
+      // 備援：perday_quotes
+      const r2b=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
+      const j2b=await r2b.json();
+      if(Array.isArray(j2b))j2b.forEach(s=>{
+        const code=s.SecuritiesCompanyCode||s['股票代號'];
+        const name=(s.CompanyName||s['股票名稱']||'').trim();
+        if(code&&name&&!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:'上櫃'});
+      });
+    }
   }catch(e){}
   // 補入期貨
   Object.entries(FUT_MAP).forEach(([code,info])=>{
@@ -2443,13 +2470,15 @@ async function loadStockDB(){
 function searchStock(q){
   if(!q||q.length<1)return[];
   const lq=q.toLowerCase();
-  const results=[];
+  const exact=[],prefix=[],nameMatch=[];
   for(const s of stockDB){
-    if(s.code.startsWith(q)||s.name.includes(lq)||s.name.toLowerCase().includes(lq))
-      results.push(s);
-    if(results.length>=8)break;
+    const codeL=s.code.toLowerCase();
+    if(codeL===lq||s.code===q)exact.push(s);
+    else if(codeL.startsWith(lq)||s.code.startsWith(q))prefix.push(s);
+    else if(s.name.includes(q)||s.name.toLowerCase().includes(lq))nameMatch.push(s);
+    if(exact.length+prefix.length+nameMatch.length>=12)break;
   }
-  return results;
+  return [...exact,...prefix,...nameMatch].slice(0,8);
 }
 
 function renderAcDrop(dropEl,results,inpEl,isMobile){
