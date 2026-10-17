@@ -1248,6 +1248,120 @@ async function futQ(code){
   return null;
 }
 
+// TWSE afterTrading 轉日K（上市股，週末備援）
+async function twseDayCandles(code){
+  try{
+    // 用最近的交易日（週六→週五，週日→週五）
+    const n=new Date();
+    let d=new Date(n);
+    if(d.getDay()===0)d.setDate(d.getDate()-2);
+    else if(d.getDay()===6)d.setDate(d.getDate()-1);
+    const ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`; // 當月第一天，取整月
+    const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?response=json&date=${ds}&stockNo=${code}&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.stat!=='OK'||!j.data?.length)return null;
+    const out=[];
+    for(const row of j.data){
+      // row: [日期, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤, 漲跌, 成交筆數]
+      const dateStr=row[0]; // 民國年 e.g. "113/10/15"
+      const parts=dateStr.split('/');
+      if(parts.length<3)continue;
+      const year=parseInt(parts[0])+1911,month=parseInt(parts[1]),day=parseInt(parts[2]);
+      const t=Math.floor(new Date(year,month-1,day,13,30,0).getTime()/1000); // 收盤時間
+      const o=parseFloat(row[3]?.replace(/,/g,''));
+      const h=parseFloat(row[4]?.replace(/,/g,''));
+      const l=parseFloat(row[5]?.replace(/,/g,''));
+      const c=parseFloat(row[6]?.replace(/,/g,''));
+      const v=parseInt(row[1]?.replace(/,/g,''))||0;
+      if(isNaN(o)||isNaN(h)||isNaN(l)||isNaN(c))continue;
+      out.push({time:t,open:o,high:h,low:l,close:c,volume:Math.round(v/1000)}); // 張
+    }
+    if(!out.length)return null;
+    // 也試抓上個月資料（補足30天）
+    try{
+      const d2=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const ds2=`${d2.getFullYear()}${String(d2.getMonth()+1).padStart(2,'0')}01`;
+      const r2=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?response=json&date=${ds2}&stockNo=${code}&_=${Date.now()}`);
+      const j2=await r2.json();
+      if(j2.stat==='OK'&&j2.data?.length){
+        for(const row of j2.data){
+          const parts=row[0].split('/');if(parts.length<3)continue;
+          const year=parseInt(parts[0])+1911,month=parseInt(parts[1]),day=parseInt(parts[2]);
+          const t=Math.floor(new Date(year,month-1,day,13,30,0).getTime()/1000);
+          const o=parseFloat(row[3]?.replace(/,/g,'')),h=parseFloat(row[4]?.replace(/,/g,'')),l=parseFloat(row[5]?.replace(/,/g,'')),c=parseFloat(row[6]?.replace(/,/g,''));
+          const v=parseInt(row[1]?.replace(/,/g,''))||0;
+          if(!isNaN(o)&&!isNaN(h)&&!isNaN(l)&&!isNaN(c))out.unshift({time:t,open:o,high:h,low:l,close:c,volume:Math.round(v/1000)});
+        }
+      }
+    }catch(e){}
+    return out.sort((a,b)=>a.time-b.time);
+  }catch(e){return null;}
+}
+
+// TPEx afterTrading 轉日K（上櫃股，週末備援）
+async function tpexDayCandles(code){
+  try{
+    const n=new Date();
+    let d=new Date(n);
+    if(d.getDay()===0)d.setDate(d.getDate()-2);
+    else if(d.getDay()===6)d.setDate(d.getDate()-1);
+    // 查當月+上個月，拼接60天
+    const months=[];
+    for(let i=0;i<2;i++){
+      const dd=new Date(d.getFullYear(),d.getMonth()-i,1);
+      const mStr=`${dd.getFullYear()}/${String(dd.getMonth()+1).padStart(2,'0')}`;
+      months.push(mStr);
+    }
+    const out=[];
+    for(const m of months.reverse()){
+      try{
+        const r=await fetch(`https://www.tpex.org.tw/rwd/zh/afterTrading/DAILY_CLOSE_quotes?d=${m}/01&s=0,asc,0&l=zh-tw&_=${Date.now()}`);
+        const j=await r.json();
+        const rows=j?.aaData||j?.data||[];
+        for(const row of rows){
+          // row[0]=日期, row[3]=開, row[4]=高, row[5]=低, row[6]=收, row[8]=成交量
+          const dateStr=row[0]; // e.g. "113/10/15" 或 "2024/10/15"
+          const parts=dateStr.split('/');if(parts.length<3)continue;
+          let year=parseInt(parts[0]);if(year<1900)year+=1911;
+          const month=parseInt(parts[1]),day=parseInt(parts[2]);
+          const t=Math.floor(new Date(year,month-1,day,14,30,0).getTime()/1000);
+          // 找這個code的行
+          const codeIdx=row.indexOf?row.findIndex?.((v,i)=>i===0?false:String(v)===code):–1;
+          // TPEx的格式不同，整行可能就是這支股票的資料
+          const o=parseFloat(String(row[3]||'').replace(/,/g,''));
+          const h=parseFloat(String(row[4]||'').replace(/,/g,''));
+          const l=parseFloat(String(row[5]||'').replace(/,/g,''));
+          const c=parseFloat(String(row[6]||'').replace(/,/g,''));
+          const v=parseInt(String(row[8]||'0').replace(/,/g,''))||0;
+          if(isNaN(o)||isNaN(c)||c<=0)continue;
+          out.push({time:t,open:o||c,high:h||c,low:l||c,close:c,volume:Math.round(v/1000)});
+        }
+      }catch(e){}
+    }
+    // 如果上面解析失敗，用 openapi
+    if(!out.length){
+      const r2=await fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?stockNo=${code}&_=${Date.now()}`);
+      const j2=await r2.json();
+      if(Array.isArray(j2)&&j2.length){
+        for(const row of j2){
+          const ds=row['日期']||row.Date||'';
+          const parts=ds.split('/');if(parts.length<3)continue;
+          let year=parseInt(parts[0]);if(year<1900)year+=1911;
+          const month=parseInt(parts[1]),day=parseInt(parts[2]);
+          const t=Math.floor(new Date(year,month-1,day,14,30,0).getTime()/1000);
+          const c=parseFloat(String(row['收盤']||row.ClosingPrice||'0').replace(/,/g,''));
+          const o=parseFloat(String(row['開盤']||row.OpeningPrice||c).replace(/,/g,''));
+          const h=parseFloat(String(row['最高']||row.HighestPrice||c).replace(/,/g,''));
+          const l=parseFloat(String(row['最低']||row.LowestPrice||c).replace(/,/g,''));
+          const v=parseInt(String(row['成交股數']||'0').replace(/,/g,''))||0;
+          if(c>0)out.push({time:t,open:o,high:h,low:l,close:c,volume:Math.round(v/1000)});
+        }
+      }
+    }
+    return out.length?out.sort((a,b)=>a.time-b.time):null;
+  }catch(e){return null;}
+}
+
 // TAIFEX 歷史日K（台指期）
 async function taifexDayCandles(code){
   const info=FUT_MAP[code?.toUpperCase()];
@@ -1662,7 +1776,22 @@ async function loadChart(code,tf){
       try{if(dChart)dChart.applyOptions({timeScale:{tickMarkFormatter:(t)=>{const d=new Date(t*1000);return`${d.getMonth()+1}/${d.getDate()}`;}}})}catch(e){}
     }
   }
-  if(!isFut)if(!candles||!candles.length)candles=simCandles(sd[code]);
+  // 最後備援：TWSE/TPEx afterTrading 轉日K（週末/無apiKey都可用）
+  if(!isFut&&(!candles||!candles.length)){
+    candles=await twseDayCandles(code);
+    if(!candles||!candles.length)candles=await tpexDayCandles(code); // OTC 股
+    if(candles&&candles.length){
+      try{if(dChart)dChart.applyOptions({timeScale:{tickMarkFormatter:(t)=>{const d=new Date(t*1000);return`${d.getMonth()+1}/${d.getDate()}`;}}});}catch(e){}
+      // 同步 sd[code] 讓報價欄有資料
+      if(candles.length&&!sd[code]){
+        const last=candles[candles.length-1],prev=candles.length>1?candles[candles.length-2].close:last.open;
+        const chg=last.close-prev;
+        sd[code]={code,name:NAMES[code]||code,price:last.close,open:last.open,high:last.high,low:last.low,prev,vol:last.volume,bid:0,ask:0,change:chg,changePct:prev?chg/prev*100:0,isLive:false,ex:''};
+        updateRow(code);
+      }
+    }
+  }
+  if(!isFut&&(!candles||!candles.length))candles=simCandles(sd[code]);
   } // end non-futures block
   if(!candles||!candles.length){
     if(spinEl)spinEl.style.display='none';
