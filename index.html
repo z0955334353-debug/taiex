@@ -1141,19 +1141,37 @@ async function twseQ(code,ex='tse'){
     const j=await r.json();
     if(!j.msgArray?.length)return null;
     const d=j.msgArray[0];
-    if(!d.n&&!d.y)return null; // 空資料
-    const price=parseFloat(d.z)||parseFloat(d.y)||0,prev=parseFloat(d.y)||0,chg=prev?price-prev:0;
+    if(!d.n&&!d.c)return null; // 完全空的資料（找不到此代號）
+    const price=parseFloat(d.z)||parseFloat(d.y)||parseFloat(d.c)||0,prev=parseFloat(d.y)||parseFloat(d.c)||0,chg=prev?price-prev:0;
     return{code,name:d.n||NAMES[code]||code,price,open:parseFloat(d.o)||0,
       high:parseFloat(d.h)||0,low:parseFloat(d.l)||0,prev,
       vol:parseInt(d.v)||0,bid:parseFloat(d.b?.split('_')?.[0])||0,ask:parseFloat(d.a?.split('_')?.[0])||0,
       change:chg,changePct:prev?chg/prev*100:0,isLive:false,ex};
   }catch(e){return null;}
 }
-// 自動試上市(tse)再試上櫃(otc)
+// 自動試上市(tse)再試上櫃(otc)，同時嘗試 twse 收盤資料 API 作為備援
 async function getQ(code){
   if(!isDemo&&apiKey){const r=await fugleQ(code);if(r)return r;}
   const tse=await twseQ(code,'tse');if(tse)return tse;
-  const otc=await twseQ(code,'otc');return otc;
+  const otc=await twseQ(code,'otc');if(otc)return otc;
+  // 備援：用 TWSE 個股收盤資料驗證（盤後/週末仍可查到）
+  try{
+    const n=new Date();
+    let d2=new Date(n);
+    if(d2.getDay()===0)d2.setDate(d2.getDate()-2);
+    else if(d2.getDay()===6)d2.setDate(d2.getDate()-1);
+    const ds=`${d2.getFullYear()}${String(d2.getMonth()+1).padStart(2,'0')}${String(d2.getDate()).padStart(2,'0')}`;
+    const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?response=json&date=${ds}&stockNo=${code}&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.stat==='OK'&&j.data?.length){
+      const last=j.data[j.data.length-1];
+      const prev=parseFloat(last[6].replace(/,/g,''))||0; // 收盤價
+      return{code,name:j.title?.split(' ')?.[1]||NAMES[code]||code,price:prev,open:parseFloat(last[3].replace(/,/g,''))||0,
+        high:parseFloat(last[4].replace(/,/g,''))||0,low:parseFloat(last[5].replace(/,/g,''))||0,prev,
+        vol:parseInt(last[1].replace(/,/g,''))||0,bid:0,ask:0,change:0,changePct:0,isLive:false,ex:'tse'};
+    }
+  }catch(e){}
+  return null;
 }
 
 async function fugleCandles(code,tf){
