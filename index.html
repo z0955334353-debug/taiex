@@ -119,7 +119,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .col-title{font-size:10px;color:var(--tx3);letter-spacing:.08em;font-weight:500;}
 .col-count{font-size:10px;color:var(--tx3);}
 
-.wl-add{display:flex;gap:5px;padding:6px 8px;border-bottom:1px solid var(--b);flex-shrink:0;}
+.wl-add{display:flex;gap:5px;padding:6px 8px;border-bottom:1px solid var(--b);flex-shrink:0;position:relative;}
 .wl-inp{
   flex:1;background:var(--bg3);border:1px solid var(--b);border-radius:5px;
   color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;
@@ -127,6 +127,22 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 }
 .wl-inp:focus{border-color:var(--gold);}
 .wl-inp::placeholder{color:var(--tx3);}
+.ac-drop{
+  position:absolute;top:100%;left:8px;right:36px;z-index:999;
+  background:var(--bg2);border:1px solid var(--gold);border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden;display:none;
+  max-height:220px;overflow-y:auto;
+}
+.ac-drop.show{display:block;}
+.ac-item{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;
+  border-bottom:1px solid var(--b);transition:background .1s;
+}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.sel{background:rgba(255,200,60,.08);}
+.ac-code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold);min-width:42px;}
+.ac-name{font-size:12px;color:var(--tx2);}
+.ac-exbadge{font-size:9px;color:var(--tx3);margin-left:auto;}
 .btn-add{
   background:var(--gold);border:none;border-radius:5px;color:#070810;
   font-weight:700;font-size:16px;width:28px;cursor:pointer;
@@ -407,8 +423,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 }
 .m-wl-title{font-size:18px;font-weight:700;margin-bottom:10px;letter-spacing:.02em;}
 .m-wl-top{
-  display:flex;gap:8px;flex-shrink:0;
+  display:flex;gap:8px;flex-shrink:0;position:relative;
 }
+.m-ac-drop{
+  position:absolute;top:100%;left:0;right:54px;z-index:999;margin-top:4px;
+  background:var(--bg2);border:1px solid var(--gold);border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden;display:none;
+  max-height:260px;overflow-y:auto;
+}
+.m-ac-drop.show{display:block;}
+.m-ac-item{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  border-bottom:1px solid var(--b);transition:background .1s;
+}
+.m-ac-item:last-child{border-bottom:none;}
+.m-ac-item:hover,.m-ac-item.sel{background:rgba(255,200,60,.08);}
+.m-ac-code{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--gold);min-width:48px;}
+.m-ac-name{font-size:14px;color:var(--tx2);}
+.m-ac-exbadge{font-size:10px;color:var(--tx3);margin-left:auto;}
 .m-wl-inp{
   flex:1;background:var(--bg3);
   border:1px solid var(--b2);border-radius:12px;
@@ -726,7 +758,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
       <span class="col-count" id="wlCount">0 檔</span>
     </div>
     <div class="wl-add">
-      <input class="wl-inp" id="wlInp" placeholder="代號 2330" maxlength="6">
+      <input class="wl-inp" id="wlInp" placeholder="代號或名稱…" maxlength="10" autocomplete="off">
+      <div class="ac-drop" id="acDrop"></div>
       <button class="btn-add" onclick="addStock()">+</button>
     </div>
     <div class="wl-filters">
@@ -918,7 +951,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
     <div class="m-wl-header">
       <div class="m-wl-title">觀察清單</div>
       <div class="m-wl-top">
-        <input class="m-wl-inp" id="mWlInp" placeholder="輸入代號，如 2330">
+        <input class="m-wl-inp" id="mWlInp" placeholder="代號或名稱…" maxlength="10" autocomplete="off">
+        <div class="m-ac-drop" id="mAcDrop"></div>
         <button class="m-btn-add" onclick="mAddStock()">+</button>
       </div>
     </div>
@@ -2246,10 +2280,113 @@ function scheduleInstCheck(){
 setInterval(scheduleInstCheck,60000);
 
 // ════════════════════════════════════════
-// KEYBOARD
+// AUTOCOMPLETE 股票搜尋
 // ════════════════════════════════════════
-g('wlInp')?.addEventListener('keydown',e=>{if(e.key==='Enter')addStock();});
-g('mWlInp')?.addEventListener('keydown',e=>{if(e.key==='Enter')mAddStock();});
+let stockDB=[]; // [{code,name,ex}]
+let acSelIdx=-1;
+
+async function loadStockDB(){
+  if(stockDB.length>0)return;
+  try{
+    // TWSE 上市
+    const r1=await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
+    const j1=await r1.json();
+    if(Array.isArray(j1))j1.forEach(s=>{
+      if(s.Code&&s.Name)stockDB.push({code:s.Code,name:s.Name.trim(),ex:'上市'});
+    });
+  }catch(e){}
+  try{
+    // TPEx 上櫃
+    const r2=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
+    const j2=await r2.json();
+    if(Array.isArray(j2))j2.forEach(s=>{
+      const code=s.SecuritiesCompanyCode||s['股票代號'];
+      const name=(s.CompanyName||s['股票名稱']||'').trim();
+      if(code&&name)stockDB.push({code,name,ex:'上櫃'});
+    });
+  }catch(e){}
+  // 補入已知的 NAMES
+  Object.entries(NAMES).forEach(([code,name])=>{
+    if(!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:''});
+  });
+}
+
+function searchStock(q){
+  if(!q||q.length<1)return[];
+  const lq=q.toLowerCase();
+  const results=[];
+  for(const s of stockDB){
+    if(s.code.startsWith(q)||s.name.includes(lq)||s.name.toLowerCase().includes(lq))
+      results.push(s);
+    if(results.length>=8)break;
+  }
+  return results;
+}
+
+function renderAcDrop(dropEl,results,inpEl,isMobile){
+  if(!dropEl)return;
+  if(!results.length){dropEl.classList.remove('show');return;}
+  const cls=isMobile?'m-ac':'ac';
+  dropEl.innerHTML=results.map((s,i)=>
+    `<div class="${cls}-item${i===acSelIdx?' sel':''}" onmousedown="pickAc('${s.code}','${inpEl.id}')" >
+      <span class="${cls}-code">${s.code}</span>
+      <span class="${cls}-name">${s.name}</span>
+      ${s.ex?`<span class="${cls}-exbadge">${s.ex}</span>`:''}
+    </div>`
+  ).join('');
+  dropEl.classList.add('show');
+}
+
+function closeAllAc(){
+  g('acDrop')?.classList.remove('show');
+  g('mAcDrop')?.classList.remove('show');
+  acSelIdx=-1;
+}
+
+function pickAc(code,inpId){
+  const inp=g(inpId);
+  if(inp)inp.value=code;
+  closeAllAc();
+  // 直接加入
+  addStockCore(code);
+  if(inp)inp.value='';
+}
+
+function setupAc(inpId,dropId,isMobile){
+  const inp=g(inpId);
+  const drop=g(dropId);
+  if(!inp||!drop)return;
+  inp.addEventListener('input',()=>{
+    acSelIdx=-1;
+    const q=inp.value.trim();
+    if(!q){closeAllAc();return;}
+    renderAcDrop(drop,searchStock(q),inp,isMobile);
+  });
+  inp.addEventListener('keydown',e=>{
+    const items=drop.querySelectorAll(isMobile?'.m-ac-item':'.ac-item');
+    if(e.key==='ArrowDown'){e.preventDefault();acSelIdx=Math.min(acSelIdx+1,items.length-1);renderAcDrop(drop,searchStock(inp.value.trim()),inp,isMobile);}
+    else if(e.key==='ArrowUp'){e.preventDefault();acSelIdx=Math.max(acSelIdx-1,-1);renderAcDrop(drop,searchStock(inp.value.trim()),inp,isMobile);}
+    else if(e.key==='Enter'){
+      if(acSelIdx>=0&&items[acSelIdx]){items[acSelIdx].dispatchEvent(new MouseEvent('mousedown'));}
+      else{isMobile?mAddStock():addStock();}
+      closeAllAc();
+    }
+    else if(e.key==='Escape')closeAllAc();
+  });
+  inp.addEventListener('blur',()=>setTimeout(closeAllAc,150));
+  inp.addEventListener('focus',()=>{
+    const q=inp.value.trim();
+    if(q)renderAcDrop(drop,searchStock(q),inp,isMobile);
+    loadStockDB(); // 背景載入（如尚未載入）
+  });
+}
+
+// ════════════════════════════════════════
+// KEYBOARD / AUTOCOMPLETE SETUP
+// ════════════════════════════════════════
+setupAc('wlInp','acDrop',false);
+setupAc('mWlInp','mAcDrop',true);
+setTimeout(loadStockDB,2000); // 背景靜默載入股票清單
 
 // ════════════════════════════════════════
 // NOTIFICATION
