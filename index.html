@@ -417,11 +417,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 
 /* ── 手機觀察清單 ── */
 .m-wl-header{
-  padding:14px 16px 8px;
-  background:var(--bg);
+  padding:16px 16px 10px;
+  background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%);
   flex-shrink:0;
+  border-bottom:1px solid var(--b);
 }
-.m-wl-title{font-size:18px;font-weight:700;margin-bottom:10px;letter-spacing:.02em;}
+.m-wl-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.m-wl-title{font-size:20px;font-weight:700;letter-spacing:.02em;}
+.m-wl-sub{font-size:11px;color:var(--tx3);}
 .m-wl-top{
   display:flex;gap:8px;flex-shrink:0;position:relative;
 }
@@ -470,24 +473,27 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .m-wl-list{flex:1;overflow-y:auto;padding-bottom:80px;}
 .m-wl-row{
   display:flex;align-items:center;
-  padding:16px 16px;
+  padding:11px 16px;
   border-bottom:1px solid var(--b);
-  cursor:pointer;gap:12px;
-  transition:background .1s;
+  cursor:pointer;gap:10px;
+  transition:background .12s;
+  min-height:62px;
 }
 .m-wl-row:active{background:var(--bg3);}
+.m-wl-row.m-sel{background:var(--bg3);border-left:3px solid var(--gold);}
 .m-wl-l{flex:1;min-width:0;}
 .m-wl-code{
-  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
-  margin-bottom:4px;display:flex;align-items:center;gap:6px;
+  font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
+  margin-bottom:3px;display:flex;align-items:center;gap:5px;letter-spacing:.02em;
 }
-.m-wl-name{font-size:13px;color:var(--tx2);}
-.m-wl-r{text-align:right;flex-shrink:0;}
-.m-wl-price{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;margin-bottom:4px;}
+.m-wl-name{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+.m-wl-r{text-align:right;flex-shrink:0;min-width:90px;}
+.m-wl-price{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-bottom:3px;line-height:1.1;}
 .m-wl-pct{
-  font-family:'JetBrains Mono',monospace;font-size:12px;
-  padding:3px 9px;border-radius:6px;display:inline-block;font-weight:600;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:2px 8px;border-radius:5px;display:inline-block;font-weight:600;
 }
+.m-wl-chg{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-top:1px;}
 
 /* ── 手機個股詳情 ── */
 .m-det-header{
@@ -953,9 +959,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
   <!-- 觀察清單頁 -->
   <div class="m-screen show" id="ms-wl">
     <div class="m-wl-header">
-      <div class="m-wl-title">觀察清單</div>
+      <div class="m-wl-title-row">
+        <div>
+          <div class="m-wl-title">觀察清單</div>
+          <div class="m-wl-sub" id="mWlSub">—</div>
+        </div>
+        <div id="mIdxBadge" style="text-align:right;font-family:'JetBrains Mono',monospace;"></div>
+      </div>
       <div class="m-wl-top">
-        <input class="m-wl-inp" id="mWlInp" placeholder="代號或名稱…" maxlength="10" autocomplete="off">
+        <input class="m-wl-inp" id="mWlInp" placeholder="輸入代號或股票名稱…" maxlength="10" autocomplete="off">
         <div class="m-ac-drop" id="mAcDrop"></div>
         <button class="m-btn-add" onclick="mAddStock()">+</button>
       </div>
@@ -1469,27 +1481,46 @@ function renderWL(){
     if(mFilter==='dn'&&(!d||d.change>=0))return;
     if(mFilter==='vol'&&(!d||d.vol<10000))return;
     const row=document.createElement('div');
-    row.className='m-wl-row';row.onclick=()=>{selectStock(code);mShow('det');};
+    row.className='m-wl-row'+(code===active?' m-sel':'');row.id=`mwr-${code}`;row.onclick=()=>{selectStock(code);mShow('det');};
     const cc=d?cc3(d.change):'fl',bg=d?bg3(d.change):'',sign=d&&d.change>0?'+':'';
+    const priceStr=d?fmtPrice(d):'——';
+    const chgStr=d&&d.change!==0?`${sign}${fmtPrice({...d,price:Math.abs(d.change)})} (${sign}${d.changePct.toFixed(2)}%)`:'';
+    const noData=!d||!d.price;
     row.innerHTML=`
       <div class="m-wl-l">
-        <div class="m-wl-code ${cc}">${code}${d?.isLive?'<span style="width:5px;height:5px;border-radius:50%;background:var(--up);display:inline-block;animation:blink 1.6s infinite;"></span>':''}</div>
-        <div class="m-wl-name">${NAMES[code]||'——'}</div>
+        <div class="m-wl-code ${noData?'fl':cc}">
+          ${code}
+          ${d?.isLive?'<span style="width:5px;height:5px;border-radius:50%;background:var(--up);display:inline-block;animation:blink 1.6s infinite;margin-left:2px;"></span>':''}
+          ${d&&!d.isLive&&d.price?'<span style="font-size:8px;color:var(--tx3);font-family:\'Noto Sans TC\',sans-serif;font-weight:400;letter-spacing:0;">收盤</span>':''}
+        </div>
+        <div class="m-wl-name">${NAMES[code]||d?.name||'讀取中…'}</div>
       </div>
       <div class="m-wl-r">
-        <div class="m-wl-price ${cc}">${d?fmtPrice(d):'——'}</div>
-        ${d?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`:''}
+        <div class="m-wl-price ${noData?'fl':cc}">${priceStr}</div>
+        ${d&&d.price?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`
+          :`<div style="font-size:10px;color:var(--tx3);">讀取中</div>`}
+        ${chgStr?`<div class="m-wl-chg ${cc}">${chgStr}</div>`:''}
       </div>
     `;
     ml.appendChild(row);
   });
+  // 更新手機 header 統計
+  const sub=g('mWlSub');
+  if(sub){
+    const ups=wl.filter(c=>sd[c]&&sd[c].change>0).length;
+    const dns=wl.filter(c=>sd[c]&&sd[c].change<0).length;
+    const tot=wl.length;
+    const now=new Date();
+    const tStr=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    sub.innerHTML=`<span style="color:var(--up);">▲${ups}</span> <span style="color:var(--dn);">▼${dns}</span> <span style="color:var(--tx3);">─${tot-ups-dns}</span> <span style="color:var(--tx3);margin-left:4px;">${tStr} 更新</span>`;
+  }
 }
 
 function updateRow(code){
+  const d=sd[code];if(!d)return;
   // desktop row
   const row=g(`dwr-${code}`);
   if(!row){renderWL();return;}
-  const d=sd[code];if(!d)return;
   const prev=prevP[code];
   if(prev&&prev!==d.price){row.classList.remove('fu','fd');void row.offsetWidth;row.classList.add(d.price>prev?'fu':'fd');}
   prevP[code]=d.price;
@@ -1497,6 +1528,15 @@ function updateRow(code){
   const pp=row.querySelector('.wl-price'),pb=row.querySelector('.wl-pct');
   if(pp){pp.className=`wl-price ${cc}`;pp.textContent=fmtPrice(d);}
   if(pb){pb.className=`wl-pct ${cc} ${bg}`;pb.textContent=`${sign}${d.changePct.toFixed(2)}%`;}
+  // mobile row
+  const mrow=g(`mwr-${code}`);
+  if(mrow){
+    const mp=mrow.querySelector('.m-wl-price'),mb=mrow.querySelector('.m-wl-pct'),mc=mrow.querySelector('.m-wl-chg');
+    const chgStr=d.change!==0?`${sign}${fmtPrice({...d,price:Math.abs(d.change)})} (${sign}${d.changePct.toFixed(2)}%)`:'';
+    if(mp){mp.className=`m-wl-price ${cc}`;mp.textContent=fmtPrice(d);}
+    if(mb){mb.className=`m-wl-pct ${cc} ${bg}`;mb.textContent=`${sign}${d.changePct.toFixed(2)}%`;}
+    if(mc){mc.className=`m-wl-chg ${cc}`;mc.textContent=chgStr;}
+  }
 }
 
 // ════════════════════════════════════════
