@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="壹神股勢">
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22%E5%A3%B9%E7%A5%9E%E8%82%A1%E5%8B%A2%E7%9B%AF%E7%9B%A4%E7%A5%9E%E5%99%A8%22,%22short_name%22:%22%E5%A3%B9%E7%A5%9E%E8%82%A1%E5%8B%A2%22,%22description%22:%22%E5%8F%B0%E8%82%A1%E5%8D%B3%E6%99%82%E7%9B%AF%E7%9B%A4%EF%BD%9CMA%E5%9D%87%E7%B7%9A%E3%83%BBVWAP%E7%94%9F%E5%91%BD%E7%B7%9A%E3%83%BB%E5%88%B0%E5%83%B9%E6%8F%90%E9%86%92%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%230e0f1c%22,%22theme_color%22:%22%230e0f1c%22,%22orientation%22:%22portrait%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230e0f1c'/%3E%3Crect x='76' y='36' width='40' height='120' rx='8' fill='%23f0a500'/%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22},{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230e0f1c'/%3E%3Crect x='206' y='96' width='100' height='320' rx='20' fill='%23f0a500'/%3E%3C/svg%3E%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg+xml%22}]}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="台股即時盯盤工具｜MA均線・生命線VWAP・到價提醒">
+<meta name="theme-color" content="#0e0f1c">
+<title>壹神股勢盯盤神器</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+/* ═══════════════════════════════════
+   DESIGN TOKENS — v7 壹神股勢
+═══════════════════════════════════ */
+:root{
+  /* 背景：深藍黑提亮，讓眼睛好讀 */
+  --bg:    #0e0f1c;
+  --bg2:   #13152a;
+  --bg3:   #191b30;
+  --bg4:   #1f2138;
+  --bg5:   #252840;
+  /* 邊框：稍微再亮一點，讓分隔線看得到 */
+  --b:     rgba(255,255,255,0.09);
+  --b2:    rgba(255,255,255,0.15);
+  --b3:    rgba(255,255,255,0.25);
+  /* 文字：主色更白，次要文字提高對比 */
+  --tx:    #f0f2ff;        /* 主文字：接近純白 */
+  --tx2:   #9ea3bd;        /* 次要文字：中灰藍，原本 #707384 太暗 */
+  --tx3:   #5c6080;        /* 說明文字：比原本 #3a3c50 亮了不少 */
+  --up:    #00e49a;
+  --dn:    #ff4d6a;
+  --flat:  #9ea3bd;
+  --gold:  #f0a500;
+  --gold2: #ffbf40;
+  --blue:  #4a8eff;
+  --purple:#c084fc;
+  --teal:  #34d399;
+  --col1:  230px;
+  --col3:  270px;
+  /* gradients */
+  --grad-gold: linear-gradient(135deg,#f0a500,#ff6b00);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'Noto Sans TC',sans-serif;font-size:13px;-webkit-font-smoothing:antialiased;}
+
+/* ═══════════════════════════════════
+   TOPBAR
+═══════════════════════════════════ */
+.topbar{
+  height:48px;display:flex;align-items:center;
+  padding:0 16px;
+  border-bottom:1px solid var(--b);
+  background:var(--bg);
+  position:relative;z-index:100;flex-shrink:0;
+  gap:16px;
+}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logo-sq{
+  width:4px;height:28px;
+  background:var(--grad-gold);
+  border-radius:2px;
+  box-shadow:0 0 10px rgba(240,165,0,.5);
+  flex-shrink:0;
+}
+.logo-text{font-size:14px;font-weight:700;letter-spacing:.03em;color:var(--tx);}
+.logo-sub{font-size:9px;color:var(--tx3);letter-spacing:.06em;margin-top:1px;}
+
+.idx-bar{
+  flex:1;display:flex;align-items:center;gap:0;overflow-x:auto;scrollbar-width:none;
+}
+.idx-bar::-webkit-scrollbar{display:none;}
+.idx-item{
+  flex-shrink:0;display:flex;align-items:baseline;gap:6px;
+  padding:0 16px;border-right:1px solid var(--b);
+}
+.idx-label{font-size:10px;color:var(--tx3);letter-spacing:.06em;text-transform:uppercase;}
+.idx-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;}
+.idx-chg{font-family:'JetBrains Mono',monospace;font-size:10px;}
+
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.status-pill{
+  display:flex;align-items:center;gap:5px;font-size:10px;color:var(--tx2);
+  background:var(--bg3);border:1px solid var(--b);border-radius:20px;padding:4px 10px;
+}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--tx3);}
+.dot.on{background:var(--up);animation:blink 1.6s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+.clk{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);}
+.btn-sm{
+  background:transparent;border:1px solid var(--b2);border-radius:6px;
+  color:var(--tx2);font-size:11px;padding:4px 10px;cursor:pointer;
+  font-family:'Noto Sans TC',sans-serif;transition:all .15s;
+}
+.btn-sm:hover{border-color:var(--gold);color:var(--gold);background:rgba(240,165,0,.05);}
+
+/* ═══════════════════════════════════
+   DESKTOP 3-COLUMN LAYOUT
+═══════════════════════════════════ */
+.desktop{display:none;flex:1;overflow:hidden;}
+@media(min-width:768px){
+  .desktop{display:flex;}
+  .mobile-wrap{display:none;}
+}
+
+/* ── COL 1: WATCHLIST ── */
+.col-wl{
+  width:var(--col1);flex-shrink:0;border-right:1px solid var(--b);
+  display:flex;flex-direction:column;overflow:hidden;background:var(--bg);
+}
+.col-header{
+  height:34px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 10px;border-bottom:1px solid var(--b);flex-shrink:0;
+}
+.col-title{font-size:10px;color:var(--tx3);letter-spacing:.08em;font-weight:500;}
+.col-count{font-size:10px;color:var(--tx3);}
+
+.wl-add{display:flex;gap:5px;padding:6px 8px;border-bottom:1px solid var(--b);flex-shrink:0;}
+.wl-inp{
+  flex:1;background:var(--bg3);border:1px solid var(--b);border-radius:5px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:5px 7px;outline:none;transition:border-color .15s;
+}
+.wl-inp:focus{border-color:var(--gold);}
+.wl-inp::placeholder{color:var(--tx3);}
+.btn-add{
+  background:var(--gold);border:none;border-radius:5px;color:#070810;
+  font-weight:700;font-size:16px;width:28px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:opacity .15s;
+}
+.btn-add:hover{opacity:.85;}
+
+.wl-filters{
+  display:flex;border-bottom:1px solid var(--b);flex-shrink:0;
+}
+.wl-ftag{
+  flex:1;font-size:10px;padding:5px 0;border:none;background:transparent;
+  color:var(--tx3);cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  border-bottom:2px solid transparent;transition:all .15s;text-align:center;
+}
+.wl-ftag.on{color:var(--gold);border-bottom-color:var(--gold);}
+
+.wl-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b2) transparent;}
+.wl-row{
+  display:flex;align-items:center;padding:7px 8px;border-bottom:1px solid var(--b);
+  cursor:pointer;transition:background .1s;position:relative;gap:6px;
+}
+.wl-row:hover{background:var(--bg3);}
+.wl-row.sel{background:var(--bg3);border-left:2px solid var(--gold);}
+.wl-row.sel .wl-code{color:var(--gold);}
+.wl-info{flex:1;min-width:0;}
+.wl-code{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-bottom:1px;}
+.wl-name{font-size:10px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wl-nums{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;}
+.wl-price{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;}
+.wl-pct{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 4px;border-radius:3px;}
+.wl-del{
+  display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:2px 4px;
+}
+.wl-row:hover .wl-del{display:block;}
+.wl-del:hover{color:var(--dn);}
+@keyframes fu{0%{background:rgba(14,203,129,.18);}100%{background:transparent;}}
+@keyframes fd{0%{background:rgba(246,70,93,.18);}100%{background:transparent;}}
+.fu{animation:fu .45s ease;} .fd{animation:fd .45s ease;}
+.live-dot{width:4px;height:4px;border-radius:50%;background:var(--up);flex-shrink:0;animation:blink 1.6s infinite;}
+
+/* ── COL 2: CHART ── */
+.col-chart{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);
+  border-right:1px solid var(--b);
+}
+.chart-topbar{
+  height:34px;display:flex;align-items:center;gap:10px;
+  padding:0 12px;border-bottom:1px solid var(--b);flex-shrink:0;
+}
+.stock-title{display:flex;align-items:baseline;gap:7px;}
+.stock-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);}
+.stock-name{font-size:14px;font-weight:600;}
+.price-block{display:flex;align-items:baseline;gap:6px;margin-left:auto;}
+.big-price{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;}
+.price-chg{font-family:'JetBrains Mono',monospace;font-size:11px;}
+
+.tf-row{
+  height:30px;display:flex;align-items:center;gap:4px;
+  padding:0 10px;border-bottom:1px solid var(--b);flex-shrink:0;
+}
+.tf-btn{
+  font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--b);
+  background:transparent;color:var(--tx3);cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .12s;
+}
+.tf-btn.on{background:var(--gold);border-color:var(--gold);color:#070810;font-weight:600;}
+.tf-sep{width:1px;height:14px;background:var(--b);margin:0 2px;}
+.src-badge{
+  margin-left:auto;font-size:9px;padding:2px 7px;border-radius:3px;
+  font-family:'JetBrains Mono',monospace;
+}
+.src-live{background:rgba(14,203,129,.1);color:var(--up);border:1px solid rgba(14,203,129,.18);}
+.src-delay{background:rgba(107,110,130,.08);color:var(--tx3);border:1px solid var(--b);}
+
+.chart-area{flex:1;position:relative;min-height:0;}
+#chartEl{width:100%;height:100%;}
+.chart-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:8px;background:rgba(14,15,28,.75);z-index:5;
+}
+.spinner{width:18px;height:18px;border:2px solid var(--b2);border-top-color:var(--gold);border-radius:50%;animation:spin .65s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.overlay-txt{font-size:11px;color:var(--tx2);}
+
+/* Chart empty state */
+.chart-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;color:var(--tx3);
+}
+.empty-icon{font-size:40px;opacity:.15;}
+.empty-txt{font-size:12px;}
+
+/* Stats bar below chart */
+.stats-bar{
+  height:36px;display:flex;align-items:stretch;border-top:1px solid var(--b);flex-shrink:0;
+}
+.stat{
+  flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:0 10px;border-right:1px solid var(--b);
+}
+.stat:last-child{border-right:none;}
+.stat-l{font-size:9px;color:var(--tx3);margin-bottom:1px;letter-spacing:.04em;}
+.stat-v{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;}
+
+/* ── COL 3: INFO PANEL ── */
+.col-info{
+  width:var(--col3);flex-shrink:0;display:flex;flex-direction:column;
+  overflow:hidden;background:var(--bg);
+}
+.info-tabs{
+  display:flex;height:34px;border-bottom:1px solid var(--b);flex-shrink:0;
+}
+.itab{
+  flex:1;font-size:10px;border:none;background:transparent;
+  color:var(--tx3);cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  border-bottom:2px solid transparent;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;
+}
+.itab.on{color:var(--gold);border-bottom-color:var(--gold);}
+.info-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b2) transparent;}
+.info-section{border-bottom:1px solid var(--b);}
+.info-sec-title{
+  font-size:9px;color:var(--tx3);letter-spacing:.08em;
+  padding:7px 12px 4px;font-weight:500;
+}
+.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.kv{padding:5px 12px;border-bottom:1px solid var(--b);}
+.kv:nth-child(odd){border-right:1px solid var(--b);}
+.kv-l{font-size:9px;color:var(--tx3);margin-bottom:2px;}
+.kv-v{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;}
+
+/* Alert section */
+.alert-section{padding:8px 10px;}
+.alert-inp-row{display:flex;gap:5px;margin-bottom:6px;}
+.alert-inp{
+  flex:1;background:var(--bg3);border:1px solid var(--b);border-radius:5px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:5px 7px;outline:none;transition:border-color .15s;
+}
+.alert-inp:focus{border-color:var(--gold);}
+.btn-set{
+  background:transparent;border:1px solid var(--gold);border-radius:5px;
+  color:var(--gold);font-size:10px;padding:5px 8px;cursor:pointer;transition:background .15s;white-space:nowrap;
+}
+.btn-set:hover{background:rgba(240,165,0,.08);}
+.atags{display:flex;flex-wrap:wrap;gap:4px;}
+.atag{
+  display:inline-flex;align-items:center;gap:3px;
+  background:rgba(240,165,0,.07);border:1px solid rgba(240,165,0,.15);
+  border-radius:3px;padding:2px 6px;font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--gold);
+}
+.atag-x{cursor:pointer;color:var(--tx3);} .atag-x:hover{color:var(--dn);}
+
+/* Screener panel */
+.scr-body{padding:10px;}
+.scr-lbl{font-size:9px;color:var(--tx3);letter-spacing:.07em;margin-bottom:6px;margin-top:10px;}
+.scr-lbl:first-child{margin-top:0;}
+.scr-range{display:flex;align-items:center;gap:5px;margin-bottom:6px;}
+.scr-inp{
+  width:72px;background:var(--bg3);border:1px solid var(--b);border-radius:4px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:4px 6px;outline:none;text-align:right;
+}
+.scr-inp:focus{border-color:var(--gold);}
+.scr-sep{font-size:10px;color:var(--tx3);}
+.scr-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.schip{
+  font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--b);
+  background:transparent;color:var(--tx3);cursor:pointer;
+  font-family:'Noto Sans TC',sans-serif;transition:all .12s;
+}
+.schip.on{background:rgba(240,165,0,.1);border-color:rgba(240,165,0,.35);color:var(--gold);}
+.btn-scan{
+  width:100%;background:var(--gold);border:none;border-radius:6px;
+  color:#070810;font-weight:700;font-size:12px;padding:9px;cursor:pointer;
+  font-family:'Noto Sans TC',sans-serif;margin-top:10px;transition:opacity .15s;
+}
+.btn-scan:active{opacity:.85;}
+.scr-results{margin-top:10px;display:flex;flex-direction:column;gap:5px;}
+.scr-card{
+  background:var(--bg3);border:1px solid var(--b);border-radius:6px;
+  padding:7px 9px;cursor:pointer;display:flex;align-items:center;
+  justify-content:space-between;transition:border-color .12s;
+}
+.scr-card:hover{border-color:var(--b3);}
+.scr-card-l{}
+.scr-c{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;margin-bottom:1px;}
+.scr-n{font-size:10px;color:var(--tx2);}
+.scr-card-r{text-align:right;}
+.scr-p{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;}
+.scr-pct{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;}
+
+/* MA + VWAP legend */
+.ma-legend{
+  position:absolute;top:6px;left:8px;z-index:10;
+  display:flex;flex-wrap:wrap;gap:10px;pointer-events:none;
+}
+.ma-tag{font-family:'JetBrains Mono',monospace;font-size:9px;display:flex;align-items:center;gap:3px;}
+.ma-dot{width:10px;height:2px;border-radius:1px;}
+/* VWAP status bar */
+.vwap-bar{
+  display:flex;gap:0;border-top:1px solid var(--b);flex-shrink:0;
+  background:var(--bg2);
+}
+.vwap-cell{
+  flex:1;padding:5px 10px;border-right:1px solid var(--b);
+  display:flex;flex-direction:column;gap:1px;
+}
+.vwap-cell:last-child{border-right:none;}
+.vwap-lbl{font-size:9px;color:var(--tx3);letter-spacing:.04em;}
+.vwap-val{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;}
+.vwap-status{font-size:9px;margin-top:1px;}
+.vwap-dual{font-size:9px;color:var(--tx2);padding:4px 10px;border-top:1px solid var(--b);text-align:center;letter-spacing:.02em;}
+
+/* colour helpers */
+.up{color:var(--up);} .dn{color:var(--dn);} .fl{color:var(--flat);}
+.up-bg{background:rgba(14,203,129,.1);} .dn-bg{background:rgba(246,70,93,.1);}
+
+/* ═══════════════════════════════════
+   MOBILE LAYOUT — v7 重設計
+═══════════════════════════════════ */
+.mobile-wrap{display:none;flex:1;flex-direction:column;overflow:hidden;}
+@media(max-width:767px){
+  .mobile-wrap{display:flex;}
+  .desktop{display:none;}
+  .topbar{height:52px;padding:0 14px;gap:10px;}
+  .logo-sq{width:4px;height:30px;}
+  .logo-text{font-size:15px;}
+  /* 手機頂部隱藏大盤數據列與右側按鈕，只保留 logo */
+  .idx-bar{display:none;}
+  .topbar-actions{display:none;}
+  /* 顯示手機版簡易狀態 */
+  .topbar-m-stat{display:flex;align-items:center;gap:6px;margin-left:auto;}
+}
+.topbar-m-stat{
+  display:none;
+  font-size:11px;color:var(--tx2);
+  align-items:center;gap:6px;
+}
+.m-screen{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.m-screen.show{display:flex;}
+
+/* ── 底部導覽 ── */
+.m-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg2);
+  border-top:1px solid var(--b);
+  display:flex;
+  padding:8px 0 max(10px,env(safe-area-inset-bottom));
+  z-index:200;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.m-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;cursor:pointer;color:var(--tx3);
+  font-size:10px;font-family:'Noto Sans TC',sans-serif;padding:2px 0;
+  transition:color .15s;
+}
+.m-tab.on{color:var(--gold);}
+.m-tab.on .m-ico-wrap{
+  background:rgba(240,165,0,.12);
+  border-radius:12px;
+  padding:4px 18px;
+}
+.m-ico-wrap{padding:4px 18px;border-radius:12px;transition:background .15s;}
+.m-ico{font-size:22px;line-height:1;display:block;}
+
+/* ── 手機觀察清單 ── */
+.m-wl-header{
+  padding:14px 16px 8px;
+  background:var(--bg);
+  flex-shrink:0;
+}
+.m-wl-title{font-size:18px;font-weight:700;margin-bottom:10px;letter-spacing:.02em;}
+.m-wl-top{
+  display:flex;gap:8px;flex-shrink:0;
+}
+.m-wl-inp{
+  flex:1;background:var(--bg3);
+  border:1px solid var(--b2);border-radius:12px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:15px;
+  padding:11px 14px;outline:none;
+  transition:border-color .2s;
+}
+.m-wl-inp:focus{border-color:var(--gold);}
+.m-wl-inp::placeholder{color:var(--tx3);}
+.m-btn-add{
+  background:var(--grad-gold);border:none;border-radius:12px;color:#06070f;
+  font-weight:700;font-size:22px;width:46px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 12px rgba(240,165,0,.3);flex-shrink:0;
+}
+.m-filters{
+  display:flex;border-bottom:1px solid var(--b);flex-shrink:0;
+  padding:0 16px;gap:4px;
+}
+.m-ftag{
+  font-size:12px;padding:10px 14px;border:none;background:transparent;
+  color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;
+  font-family:'Noto Sans TC',sans-serif;transition:all .15s;
+  font-weight:500;
+}
+.m-ftag.on{color:var(--gold);border-bottom-color:var(--gold);}
+.m-wl-list{flex:1;overflow-y:auto;padding-bottom:80px;}
+.m-wl-row{
+  display:flex;align-items:center;
+  padding:16px 16px;
+  border-bottom:1px solid var(--b);
+  cursor:pointer;gap:12px;
+  transition:background .1s;
+}
+.m-wl-row:active{background:var(--bg3);}
+.m-wl-l{flex:1;min-width:0;}
+.m-wl-code{
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+  margin-bottom:4px;display:flex;align-items:center;gap:6px;
+}
+.m-wl-name{font-size:13px;color:var(--tx2);}
+.m-wl-r{text-align:right;flex-shrink:0;}
+.m-wl-price{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;margin-bottom:4px;}
+.m-wl-pct{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  padding:3px 9px;border-radius:6px;display:inline-block;font-weight:600;
+}
+
+/* ── 手機個股詳情 ── */
+.m-det-header{
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--b);
+  flex-shrink:0;
+  background:var(--bg);
+}
+.m-back{
+  display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx2);
+  background:none;border:none;cursor:pointer;padding:0 0 10px;
+  font-family:'Noto Sans TC',sans-serif;
+}
+.m-back-ico{font-size:16px;}
+.m-title-row{display:flex;align-items:flex-start;justify-content:space-between;}
+.m-code{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  color:var(--gold);margin-bottom:4px;letter-spacing:.05em;
+}
+.m-name{font-size:22px;font-weight:700;letter-spacing:.02em;}
+.m-price-wrap{text-align:right;}
+.m-price{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;line-height:1;}
+.m-chg{font-family:'JetBrains Mono',monospace;font-size:13px;margin-top:5px;}
+.m-tf-row{
+  display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid var(--b);
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none;align-items:center;
+}
+.m-tf-row::-webkit-scrollbar{display:none;}
+.m-tf{
+  font-size:12px;padding:6px 13px;border-radius:8px;border:1px solid var(--b);
+  background:var(--bg3);color:var(--tx3);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;flex-shrink:0;transition:all .12s;
+  font-weight:500;
+}
+.m-tf.on{background:var(--gold);border-color:var(--gold);color:#06070f;font-weight:700;}
+.m-src{
+  margin-left:auto;font-size:10px;padding:3px 9px;border-radius:10px;
+  font-family:'JetBrains Mono',monospace;flex-shrink:0;font-weight:600;
+}
+.m-chart-wrap{flex:1;position:relative;min-height:0;}
+#mChartEl{width:100%;height:100%;}
+.m-chart-spin{
+  position:absolute;inset:0;background:rgba(14,15,28,.8);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:5;
+}
+/* 手機數據格 */
+.m-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--b);flex-shrink:0;
+}
+.m-stat{padding:9px 8px;border-right:1px solid var(--b);}
+.m-stat:last-child{border-right:none;}
+.m-stat-l{font-size:10px;color:var(--tx3);margin-bottom:3px;letter-spacing:.04em;}
+.m-stat-v{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;}
+.m-more{
+  display:flex;overflow-x:auto;scrollbar-width:none;
+  border-top:1px solid var(--b);flex-shrink:0;
+}
+.m-more::-webkit-scrollbar{display:none;}
+.m-more-cell{flex-shrink:0;padding:8px 14px;border-right:1px solid var(--b);min-width:80px;}
+.m-more-l{font-size:10px;color:var(--tx3);margin-bottom:3px;}
+.m-more-v{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;}
+.m-alert-bar{
+  display:flex;align-items:center;gap:8px;padding:9px 14px;
+  border-top:1px solid var(--b);flex-shrink:0;flex-wrap:wrap;
+  padding-bottom:max(9px,env(safe-area-inset-bottom));
+  background:var(--bg2);
+}
+.m-alert-lbl{font-size:11px;color:var(--tx3);font-weight:500;}
+.m-alert-inp{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:8px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:13px;
+  padding:7px 10px;outline:none;width:100px;
+  transition:border-color .2s;
+}
+.m-alert-inp:focus{border-color:var(--gold);}
+.m-btn-alert{
+  background:transparent;border:1px solid rgba(240,165,0,.4);border-radius:8px;
+  color:var(--gold);font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap;
+  font-weight:600;
+}
+
+/* ── 手機選股 ── */
+.m-scr-wrap{flex:1;overflow-y:auto;padding:16px 16px 90px;}
+.m-scr-lbl{
+  font-size:12px;color:var(--tx2);letter-spacing:.05em;
+  margin-bottom:10px;margin-top:18px;font-weight:600;
+}
+.m-scr-lbl:first-child{margin-top:0;}
+.m-scr-range{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.m-scr-inp{
+  flex:1;background:var(--bg3);border:1px solid var(--b2);border-radius:10px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:15px;
+  padding:10px 12px;outline:none;text-align:right;
+  transition:border-color .2s;
+}
+.m-scr-inp:focus{border-color:var(--gold);}
+.m-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+.mchip{
+  font-size:13px;padding:7px 16px;border-radius:20px;border:1px solid var(--b2);
+  background:var(--bg3);color:var(--tx3);cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  transition:all .15s;font-weight:500;
+}
+.mchip.on{
+  background:rgba(240,165,0,.12);border-color:rgba(240,165,0,.4);
+  color:var(--gold);font-weight:700;
+}
+.m-btn-scan{
+  width:100%;background:var(--grad-gold);border:none;border-radius:12px;
+  color:#06070f;font-weight:700;font-size:15px;padding:15px;cursor:pointer;
+  font-family:'Noto Sans TC',sans-serif;margin-top:16px;
+  box-shadow:0 4px 16px rgba(240,165,0,.25);
+  transition:opacity .15s;
+}
+.m-btn-scan:active{opacity:.85;}
+.m-scr-results{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+.m-scr-card{
+  background:var(--bg3);border:1px solid var(--b);border-radius:12px;
+  padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  transition:border-color .15s;
+}
+.m-scr-card:active{border-color:rgba(240,165,0,.4);background:var(--bg4);}
+
+/* ═══════════════════════════════════
+   MODAL
+═══════════════════════════════════ */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:999;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-bg.open{display:flex;}
+.modal{
+  background:var(--bg2);border-radius:14px 14px 0 0;border-top:1px solid var(--b2);
+  width:100%;max-width:440px;padding:20px 18px max(24px,env(safe-area-inset-bottom));
+}
+.modal-handle{width:32px;height:3px;background:var(--bg5);border-radius:2px;margin:0 auto 18px;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:5px;}
+.modal-desc{font-size:11px;color:var(--tx2);line-height:1.7;margin-bottom:14px;}
+.modal-link{color:var(--gold);text-decoration:none;}
+.modal-lbl{font-size:9px;color:var(--tx3);letter-spacing:.07em;margin-bottom:5px;}
+.modal-inp{
+  width:100%;background:var(--bg3);border:1px solid var(--b2);border-radius:7px;
+  color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:13px;
+  padding:10px 11px;outline:none;margin-bottom:12px;transition:border-color .2s;
+}
+.modal-inp:focus{border-color:var(--gold);}
+.modal-btns{display:flex;gap:8px;}
+.mbtn-p{flex:1;background:var(--gold);border:none;border-radius:7px;color:#070810;font-weight:700;font-size:13px;padding:11px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
+.mbtn-g{flex:1;background:transparent;border:1px solid var(--b2);border-radius:7px;color:var(--tx2);font-size:13px;padding:11px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
+
+/* toast */
+#toast{
+  position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(5px);
+  background:var(--bg4);border:1px solid var(--b2);border-radius:7px;
+  padding:8px 14px;font-size:11px;color:var(--tx);
+  opacity:0;transition:all .22s;z-index:9999;white-space:nowrap;pointer-events:none;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+@media(min-width:768px){#toast{bottom:18px;}}
+</style>
+</head>
+<body>
+
+<!-- ════ TOPBAR ════ -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-sq"></div>
+    <div>
+      <div class="logo-text">壹神股勢盯盤神器</div>
+      <div class="logo-sub">即時盯盤 · 生命線 · 到價提醒</div>
+    </div>
+  </div>
+  <div class="idx-bar">
+    <div class="idx-item">
+      <span class="idx-label">TAIEX</span>
+      <span class="idx-val fl" id="iVal">——</span>
+      <span class="idx-chg fl" id="iChg">——</span>
+    </div>
+    <div class="idx-item">
+      <span class="idx-label">櫃買</span>
+      <span class="idx-val fl" id="iOtc">——</span>
+      <span class="idx-chg fl" id="iOtcC">——</span>
+    </div>
+    <div class="idx-item">
+      <span class="idx-label">漲</span>
+      <span class="idx-val up" id="iUp">——</span>
+    </div>
+    <div class="idx-item">
+      <span class="idx-label">跌</span>
+      <span class="idx-val dn" id="iDn">——</span>
+    </div>
+    <div class="idx-item">
+      <span class="idx-label">成交(億)</span>
+      <span class="idx-val fl" id="iVol">——</span>
+    </div>
+  </div>
+  <!-- 手機版頂部右側：簡易狀態 + 設定按鈕 -->
+  <div class="topbar-m-stat">
+    <div class="dot" id="mDotM" style="width:6px;height:6px;border-radius:50%;background:var(--tx3);"></div>
+    <button style="background:none;border:none;color:var(--tx2);font-size:18px;cursor:pointer;padding:0;" onclick="openModal()">⚙</button>
+  </div>
+  <div class="topbar-actions">
+    <div class="status-pill"><div class="dot" id="mDot"></div><span id="mStat">——</span></div>
+    <div class="clk" id="clk">--:--:--</div>
+    <button class="btn-sm" onclick="openModal()">⚙ API Key</button>
+    <button class="btn-sm" style="border-color:rgba(240,165,0,.3);color:var(--gold);" onclick="window.open('https://temporary-agile-comet-jivaerz.vercel.app/login','_blank')">📋 交易紀錄</button>
+  </div>
+</div>
+
+<!-- ════ DESKTOP 3-COLUMN ════ -->
+<div class="desktop">
+
+  <!-- COL 1: 觀察清單 -->
+  <div class="col-wl">
+    <div class="col-header">
+      <span class="col-title">觀察清單</span>
+      <span class="col-count" id="wlCount">0 檔</span>
+    </div>
+    <div class="wl-add">
+      <input class="wl-inp" id="wlInp" placeholder="代號 2330" maxlength="6">
+      <button class="btn-add" onclick="addStock()">+</button>
+    </div>
+    <div class="wl-filters">
+      <button class="wl-ftag on" id="dft-all" onclick="setDF('all')">全部</button>
+      <button class="wl-ftag" id="dft-up" onclick="setDF('up')">漲</button>
+      <button class="wl-ftag" id="dft-dn" onclick="setDF('dn')">跌</button>
+      <button class="wl-ftag" id="dft-vol" onclick="setDF('vol')">爆量</button>
+    </div>
+    <div class="wl-list" id="wlList"></div>
+  </div>
+
+  <!-- COL 2: K線圖 -->
+  <div class="col-chart">
+    <!-- 空白態 -->
+    <div class="chart-empty" id="chartEmpty">
+      <div class="empty-icon">📊</div>
+      <div class="empty-txt">從左側選擇個股</div>
+    </div>
+    <!-- 有選股後顯示 -->
+    <div id="chartContent" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="chart-topbar">
+        <div class="stock-title">
+          <span class="stock-code" id="dCode">——</span>
+          <span class="stock-name" id="dName">——</span>
+        </div>
+        <div class="price-block">
+          <span class="big-price fl" id="dPrice">——</span>
+          <span class="price-chg fl" id="dChg">——</span>
+        </div>
+      </div>
+      <div class="tf-row">
+        <button class="tf-btn on" onclick="setTF('1')">1分K</button>
+        <button class="tf-btn" onclick="setTF('5')">5分K</button>
+        <button class="tf-btn" onclick="setTF('15')">15分K</button>
+        <button class="tf-btn" onclick="setTF('60')">60分K</button>
+        <button class="tf-btn" onclick="setTF('D')">日K</button>
+        <button class="tf-btn" onclick="setTF('W')">週K</button>
+        <div class="tf-sep"></div>
+        <div class="src-badge src-delay" id="dSrc">延遲20分</div>
+      </div>
+      <div class="chart-area">
+        <div id="chartEl"></div>
+        <div class="ma-legend" id="maLegend" style="display:none;">
+          <div class="ma-tag"><div class="ma-dot" style="background:#f0a500;"></div><span style="color:#f0a500;">MA5</span><span id="ma5val" style="color:#f0a500;margin-left:2px;"></span></div>
+          <div class="ma-tag"><div class="ma-dot" style="background:#3a7bff;"></div><span style="color:#3a7bff;">MA10</span><span id="ma10val" style="color:#3a7bff;margin-left:2px;"></span></div>
+          <div class="ma-tag"><div class="ma-dot" style="background:#e05050;"></div><span style="color:#e05050;">MA20</span><span id="ma20val" style="color:#e05050;margin-left:2px;"></span></div>
+          <div class="ma-tag" id="vwapDtag" style="display:none;"><div class="ma-dot" style="background:#c084fc;"></div><span style="color:#c084fc;">日VWAP</span><span id="vwapDlegend" style="color:#c084fc;margin-left:2px;"></span></div>
+          <div class="ma-tag" id="vwapWtag" style="display:none;"><div class="ma-dot" style="background:#34d399;"></div><span style="color:#34d399;">週VWAP</span><span id="vwapWlegend" style="color:#34d399;margin-left:2px;"></span></div>
+        </div>
+        <div class="chart-overlay" id="chartOverlay">
+          <div class="spinner"></div>
+          <div class="overlay-txt" id="overlayTxt">載入K線中...</div>
+        </div>
+      </div>
+      <div class="stats-bar">
+        <div class="stat"><div class="stat-l">開盤</div><div class="stat-v fl" id="dOpen">—</div></div>
+        <div class="stat"><div class="stat-l">最高</div><div class="stat-v up" id="dHigh">—</div></div>
+        <div class="stat"><div class="stat-l">最低</div><div class="stat-v dn" id="dLow">—</div></div>
+        <div class="stat"><div class="stat-l">昨收</div><div class="stat-v fl" id="dPrev">—</div></div>
+        <div class="stat"><div class="stat-l">成交量</div><div class="stat-v fl" id="dVol">—</div></div>
+        <div class="stat"><div class="stat-l">振幅</div><div class="stat-v fl" id="dAmp">—</div></div>
+        <div class="stat"><div class="stat-l">買/賣</div><div class="stat-v fl" id="dBidAsk">—</div></div>
+      </div>
+      <div id="vwapBar" style="display:none;">
+        <div class="vwap-bar">
+          <div class="vwap-cell">
+            <div class="vwap-lbl">當沖生命線｜日 VWAP</div>
+            <div class="vwap-val fl" id="vwapDval">—</div>
+            <div class="vwap-status fl" id="vwapDst">—</div>
+          </div>
+          <div class="vwap-cell">
+            <div class="vwap-lbl">波段生命線｜週 VWAP</div>
+            <div class="vwap-val fl" id="vwapWval">—</div>
+            <div class="vwap-status fl" id="vwapWst">—</div>
+          </div>
+        </div>
+        <div class="vwap-dual" id="vwapDual">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 3: 資訊面板 -->
+  <div class="col-info">
+    <div class="info-tabs">
+      <button class="itab on" id="itab-info" onclick="setITab('info')">個股資訊</button>
+      <button class="itab" id="itab-alert" onclick="setITab('alert')">到價提醒</button>
+      <button class="itab" id="itab-scr" onclick="setITab('scr')">選股</button>
+    </div>
+    <div class="info-body">
+      <!-- info tab -->
+      <div id="ipanel-info">
+        <div class="info-section">
+          <div class="info-sec-title">價格資訊</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="kv-l">現價</div><div class="kv-v fl" id="ip-price">—</div></div>
+            <div class="kv"><div class="kv-l">漲跌幅</div><div class="kv-v fl" id="ip-pct">—</div></div>
+            <div class="kv"><div class="kv-l">今日最高</div><div class="kv-v up" id="ip-high">—</div></div>
+            <div class="kv"><div class="kv-l">今日最低</div><div class="kv-v dn" id="ip-low">—</div></div>
+            <div class="kv"><div class="kv-l">開盤</div><div class="kv-v fl" id="ip-open">—</div></div>
+            <div class="kv"><div class="kv-l">昨收</div><div class="kv-v fl" id="ip-prev">—</div></div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-sec-title">成交資訊</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="kv-l">成交量(張)</div><div class="kv-v" id="ip-vol">—</div></div>
+            <div class="kv"><div class="kv-l">振幅</div><div class="kv-v" id="ip-amp">—</div></div>
+            <div class="kv"><div class="kv-l">買進價</div><div class="kv-v up" id="ip-bid">—</div></div>
+            <div class="kv"><div class="kv-l">賣出價</div><div class="kv-v dn" id="ip-ask">—</div></div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;border-bottom:1px solid var(--b);">
+          <div class="info-sec-title" style="padding:0 0 5px;">免責聲明</div>
+          <div style="font-size:9px;color:var(--tx3);line-height:1.6;">
+            本工具所提供之資訊僅供參考，不構成任何投資建議。投資有風險，請依自身財務狀況審慎評估。資料來源：TWSE / Fugle。
+          </div>
+        </div>
+      </div>
+      <!-- alert tab -->
+      <div id="ipanel-alert" style="display:none;padding:10px;">
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:8px;">設定到價提醒，觸及目標價時彈出通知</div>
+        <div class="alert-inp-row">
+          <input class="alert-inp" id="dAlertInp" type="number" step="0.5" placeholder="輸入目標價">
+          <button class="btn-set" onclick="addAlert()">＋ 設定</button>
+        </div>
+        <div class="atags" id="dAlertTags"></div>
+        <div style="margin-top:12px;font-size:9px;color:var(--tx3);">目前觀察清單到價提醒設定，點 × 可移除。</div>
+      </div>
+      <!-- screener tab -->
+      <div id="ipanel-scr" style="display:none;">
+        <div class="scr-body" id="dScrBody"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end desktop -->
+
+<!-- ════ MOBILE ════ -->
+<div class="mobile-wrap">
+
+  <!-- 觀察清單頁 -->
+  <div class="m-screen show" id="ms-wl">
+    <div class="m-wl-header">
+      <div class="m-wl-title">觀察清單</div>
+      <div class="m-wl-top">
+        <input class="m-wl-inp" id="mWlInp" placeholder="輸入代號，如 2330">
+        <button class="m-btn-add" onclick="mAddStock()">+</button>
+      </div>
+    </div>
+    <div class="m-filters">
+      <button class="m-ftag on" id="mft-all" onclick="setMF('all')">全部</button>
+      <button class="m-ftag" id="mft-up" onclick="setMF('up')">漲</button>
+      <button class="m-ftag" id="mft-dn" onclick="setMF('dn')">跌</button>
+      <button class="m-ftag" id="mft-vol" onclick="setMF('vol')">爆量</button>
+    </div>
+    <div class="m-wl-list" id="mWlList"></div>
+  </div>
+
+  <!-- 個股詳情頁 -->
+  <div class="m-screen" id="ms-det">
+    <div class="m-det-header">
+      <button class="m-back" onclick="mGoBack()"><span class="m-back-ico">←</span> 觀察清單</button>
+      <div class="m-title-row">
+        <div>
+          <div class="m-code" id="mCode">——</div>
+          <div class="m-name" id="mName">——</div>
+        </div>
+        <div class="m-price-wrap">
+          <div class="m-price fl" id="mPrice">——</div>
+          <div class="m-chg fl" id="mChg">——</div>
+        </div>
+      </div>
+    </div>
+    <div class="m-tf-row">
+      <button class="m-tf on" onclick="setTF('1')">1分</button>
+      <button class="m-tf" onclick="setTF('5')">5分</button>
+      <button class="m-tf" onclick="setTF('15')">15分</button>
+      <button class="m-tf" onclick="setTF('60')">60分</button>
+      <button class="m-tf" onclick="setTF('D')">日K</button>
+      <button class="m-tf" onclick="setTF('W')">週K</button>
+      <div class="m-src src-delay" id="mSrc">延遲</div>
+    </div>
+    <div class="m-chart-wrap">
+      <div id="mChartEl"></div>
+      <div class="ma-legend" id="mMaLegend" style="display:none;">
+        <div class="ma-tag"><div class="ma-dot" style="background:#f0a500;"></div><span style="color:#f0a500;">MA5</span></div>
+        <div class="ma-tag"><div class="ma-dot" style="background:#3a7bff;"></div><span style="color:#3a7bff;">MA10</span></div>
+        <div class="ma-tag"><div class="ma-dot" style="background:#e05050;"></div><span style="color:#e05050;">MA20</span></div>
+      </div>
+      <div class="m-chart-spin" id="mChartSpin">
+        <div class="spinner"></div>
+        <div class="overlay-txt">載入K線...</div>
+      </div>
+    </div>
+    <div class="m-stats">
+      <div class="m-stat"><div class="m-stat-l">開盤</div><div class="m-stat-v fl" id="msOpen">—</div></div>
+      <div class="m-stat"><div class="m-stat-l">最高</div><div class="m-stat-v up" id="msHigh">—</div></div>
+      <div class="m-stat"><div class="m-stat-l">最低</div><div class="m-stat-v dn" id="msLow">—</div></div>
+      <div class="m-stat"><div class="m-stat-l">昨收</div><div class="m-stat-v fl" id="msPrev">—</div></div>
+    </div>
+    <div class="m-more">
+      <div class="m-more-cell"><div class="m-more-l">成交量</div><div class="m-more-v" id="msVol">—</div></div>
+      <div class="m-more-cell"><div class="m-more-l">買價</div><div class="m-more-v up" id="msBid">—</div></div>
+      <div class="m-more-cell"><div class="m-more-l">賣價</div><div class="m-more-v dn" id="msAsk">—</div></div>
+      <div class="m-more-cell"><div class="m-more-l">振幅</div><div class="m-more-v" id="msAmp">—</div></div>
+    </div>
+    <div class="m-alert-bar">
+      <span class="m-alert-lbl">到價提醒</span>
+      <input class="m-alert-inp" id="mAlertInp" type="number" step="0.5" placeholder="目標價">
+      <button class="m-btn-alert" onclick="addAlertM()">＋</button>
+      <div class="atags" id="mAlertTags"></div>
+    </div>
+  </div>
+
+  <!-- 選股頁 -->
+  <div class="m-screen" id="ms-scr">
+    <div style="padding:16px 16px 0;flex-shrink:0;">
+      <div style="font-size:18px;font-weight:700;letter-spacing:.02em;margin-bottom:4px;">股票篩選</div>
+      <div style="font-size:12px;color:var(--tx3);">設定條件快速找標的</div>
+    </div>
+    <div class="m-scr-wrap" id="mScrWrap"></div>
+  </div>
+
+  <!-- 底部導覽 -->
+  <div class="m-nav">
+    <button class="m-tab on" id="mnav-wl" onclick="mShow('wl')">
+      <div class="m-ico-wrap"><span class="m-ico">⭐</span></div>
+      <span>清單</span>
+    </button>
+    <button class="m-tab" id="mnav-det" onclick="mShow('det')">
+      <div class="m-ico-wrap"><span class="m-ico">📈</span></div>
+      <span>個股</span>
+    </button>
+    <button class="m-tab" id="mnav-scr" onclick="mShow('scr')">
+      <div class="m-ico-wrap"><span class="m-ico">🔍</span></div>
+      <span>選股</span>
+    </button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">設定 Fugle API Key</div>
+    <div class="modal-desc">
+      輸入 Key 啟用<strong style="color:var(--up)">即時報價</strong>及分K圖表。<br>
+      免費申請：<a class="modal-link" href="https://developer.fugle.tw" target="_blank">developer.fugle.tw</a>
+      （免費方案每分鐘30次，個人使用足夠）
+    </div>
+    <div class="modal-lbl">API KEY</div>
+    <input class="modal-inp" id="apiInp" type="password" placeholder="貼上你的 Fugle API Key...">
+    <div class="modal-btns">
+      <button class="mbtn-g" onclick="useDemoMode()">試用模式</button>
+      <button class="mbtn-p" onclick="saveKey()">確認啟動即時</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const NAMES={
+  '2330':'台積電','2317':'鴻海','2454':'聯發科','2382':'廣達','3008':'大立光',
+  '2308':'台達電','2881':'富邦金','2882':'國泰金','2886':'兆豐金','2303':'聯電',
+  '2412':'中華電','2891':'中信金','5871':'中租-KY','2357':'華碩','2395':'研華',
+  '1303':'南亞','1301':'台塑','6505':'台塑化','2002':'中鋼','3711':'日月光投控',
+  '2379':'瑞昱','2408':'南亞科','6669':'緯穎','2474':'可成','4938':'和碩',
+  '0050':'元大台灣50','0056':'元大高股息','00878':'國泰永續高股息',
+  '2615':'萬海','2603':'長榮','2609':'陽明','2610':'華航','2618':'長榮航',
+};
+const BANK=['2881','2882','2883','2884','2885','2886','2887','2888','2889','2890','2891','2892'];
+
+const _DK='MmU3YWY1YjctYjFmMS00NDU4LThkNGMtZDQwMmRmZGU1Y2Q0IGQzNzY3MDNhLWMyOTgtNDhhMi05YTRlLWIyZTA4NzQxOTc2NQ==';
+let apiKey=localStorage.getItem('fg_v4')||atob(_DK).trim();
+if(!localStorage.getItem('fg_v4'))localStorage.setItem('fg_v4',apiKey);
+let isDemo=!apiKey;
+let wl=JSON.parse(localStorage.getItem('wl_v4')||'null')||['2330','2317','2454','2382','3008'];
+let sd={}, active=null, activeTF='1';
+let alerts=JSON.parse(localStorage.getItem('al_v4')||'{}');
+let prevP={}, dFilter='all', mFilter='all';
+let ws=null, wsOk=false;
+let dChart=null, dCS=null, dVS=null;
+let dMA5=null, dMA10=null, dMA20=null;
+let dVWAP_D=null, dVWAP_W=null;
+let mChart=null, mCS=null, mVS=null;
+let mMA5=null, mMA10=null, mMA20=null;
+let mVWAP_D=null, mVWAP_W=null;
+let lastTick=null, rfTimer=null;
+const isMob=()=>window.innerWidth<768;
+
+// ════════════════════════════════════════
+// CLOCK
+// ════════════════════════════════════════
+setInterval(()=>{
+  const n=new Date();
+  g('clk').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  const mins=n.getHours()*60+n.getMinutes();
+  const open=mins>=540&&mins<810&&n.getDay()>=1&&n.getDay()<=5;
+  g('mDot').className='dot'+(open?' on':'');
+  g('mStat').textContent=open?'盤中':'休市';
+  const mDotM=g('mDotM');if(mDotM)mDotM.style.background=open?'var(--up)':'var(--tx3)';
+},1000);
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+function openModal(){g('modalBg').classList.add('open');}
+function closeModal(){g('modalBg').classList.remove('open');}
+function saveKey(){
+  const k=g('apiInp').value.trim();
+  if(!k){toast('請輸入 API Key');return;}
+  apiKey=k;isDemo=false;localStorage.setItem('fg_v4',k);
+  closeModal();toast('✓ 即時模式啟動');initWS();startRefresh();
+}
+function useDemoMode(){isDemo=true;apiKey='';closeModal();toast('試用模式：延遲20分鐘');startRefresh();}
+
+// ════════════════════════════════════════
+// WEBSOCKET
+// ════════════════════════════════════════
+function initWS(){
+  if(isDemo||!apiKey)return;
+  try{ws&&ws.close();}catch(e){}
+  ws=new WebSocket(`wss://api.fugle.tw/marketdata/v1.0/stock/streaming?apikey=${apiKey}`);
+  ws.onopen=()=>{wsOk=true;wl.forEach(wsSub);};
+  ws.onmessage=(e)=>{
+    try{
+      const m=JSON.parse(e.data);
+      if(m.event==='data'&&m.channel==='trades'){
+        const d=m.data,code=d.symbol,ex=sd[code]||{};
+        const prev=ex.prev||d.price;
+        sd[code]={...ex,code,name:NAMES[code]||ex.name||code,price:d.price,
+          bid:d.bid,ask:d.ask,vol:d.volume,change:d.price-prev,
+          changePct:prev?(d.price-prev)/prev*100:0,isLive:true};
+        updateRow(code);
+        checkAlerts(code,d.price);
+        if(code===active){syncBars();if(activeTF==='1'&&(dCS||mCS))pushTick(Math.floor(d.time/1e6),d.price,d.size||0);}
+      }
+    }catch(e){}
+  };
+  ws.onclose=()=>{wsOk=false;setTimeout(initWS,5000);};
+  ws.onerror=()=>{wsOk=false;};
+}
+function wsSub(c){if(ws&&ws.readyState===1)ws.send(JSON.stringify({event:'subscribe',data:{channel:'trades',symbol:c}}));}
+
+// ════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════
+async function fugleQ(code){
+  if(!apiKey)return null;
+  try{
+    const r=await fetch(`https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,{headers:{'X-API-KEY':apiKey}});
+    if(!r.ok)return null;
+    const j=await r.json();
+    const price=j.closePrice||j.lastPrice||j.previousClose||0,prev=j.previousClose||0;
+    return{code,name:j.name||NAMES[code]||code,price,open:j.openPrice||0,
+      high:j.highPrice||0,low:j.lowPrice||0,prev,vol:j.volume||0,
+      bid:j.bestBidPrice||0,ask:j.bestAskPrice||0,
+      change:price-prev,changePct:prev?(price-prev)/prev*100:0,isLive:true};
+  }catch(e){return null;}
+}
+async function twseQ(code){
+  try{
+    const r=await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${code}.tw&_=${Date.now()}`);
+    const j=await r.json();
+    if(!j.msgArray?.length)return null;
+    const d=j.msgArray[0];
+    const price=parseFloat(d.z)||parseFloat(d.y)||0,prev=parseFloat(d.y)||0,chg=prev?price-prev:0;
+    return{code,name:d.n||NAMES[code]||code,price,open:parseFloat(d.o)||0,
+      high:parseFloat(d.h)||0,low:parseFloat(d.l)||0,prev,
+      vol:parseInt(d.v)||0,bid:parseFloat(d.b)||0,ask:parseFloat(d.a)||0,
+      change:chg,changePct:prev?chg/prev*100:0,isLive:false};
+  }catch(e){return null;}
+}
+async function getQ(code){return(!isDemo&&apiKey)?(await fugleQ(code)||await twseQ(code)):await twseQ(code);}
+
+async function fugleCandles(code,tf){
+  if(!apiKey)return null;
+  try{
+    const url=tf==='D'||tf==='W'
+      ?`https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/${code}?timeframe=${tf}&limit=120`
+      :`https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/${code}?timeframe=${tf}`;
+    const r=await fetch(url,{headers:{'X-API-KEY':apiKey}});
+    if(!r.ok)return null;
+    const j=await r.json();
+    return(j.data||[]).map(c=>({time:Math.floor(new Date(c.date).getTime()/1000),open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume||0})).filter(c=>c.open&&c.close);
+  }catch(e){return null;}
+}
+function simCandles(d){
+  if(!d)return[];
+  const base=d.prev||d.price||100,now=new Date(),start=new Date(now);
+  start.setHours(9,0,0,0);
+  const bars=Math.min(Math.max(0,Math.floor((now-start)/60000)),270);
+  let cur=base,out=[];
+  for(let i=0;i<bars;i++){
+    const t=new Date(start.getTime()+i*60000),v=base*0.002;
+    const o=cur,h=o+Math.random()*v,l=o-Math.random()*v,c=l+Math.random()*(h-l);
+    out.push({time:Math.floor(t.getTime()/1000),open:+o.toFixed(2),high:+h.toFixed(2),low:+l.toFixed(2),close:+c.toFixed(2),volume:Math.floor(Math.random()*400+80)});
+    cur=c;
+  }
+  if(out.length&&d.price){const last=out[out.length-1];last.close=d.price;last.high=Math.max(last.high,d.price);last.low=Math.min(last.low,d.price);}
+  return out;
+}
+
+async function fetchIndex(){
+  try{
+    const r=await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.msgArray?.length){
+      const d=j.msgArray[0],val=parseFloat(d.z)||parseFloat(d.y)||0,prev=parseFloat(d.y)||0;
+      const chg=val-prev,pct=prev?chg/prev*100:0,cc=chg>0?'up':chg<0?'dn':'fl';
+      setEl('iVal',val.toFixed(2),`idx-val ${cc}`);
+      setEl('iChg',`${chg>=0?'+':''}${chg.toFixed(2)} (${pct>=0?'+':''}${pct.toFixed(2)}%)`,`idx-chg ${cc}`);
+    }
+  }catch(e){}
+  try{
+    const r=await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=otc_o00.tw&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.msgArray?.length){
+      const d=j.msgArray[0],val=parseFloat(d.z)||parseFloat(d.y)||0,prev=parseFloat(d.y)||0;
+      const chg=val-prev,cc=chg>0?'up':chg<0?'dn':'fl';
+      setEl('iOtc',val.toFixed(2),`idx-val ${cc}`);
+      setEl('iOtcC',`${chg>=0?'+':''}${chg.toFixed(2)}`,`idx-chg ${cc}`);
+    }
+  }catch(e){}
+  try{
+    const n=new Date(),ds=`${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}`;
+    const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?date=${ds}&response=json&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.stat==='OK'&&j.data){
+      let up=0,dn=0,vol=0;
+      j.data.forEach(row=>{
+        const p=parseFloat((row[9]||'').replace(/[+%]/g,'')),v=parseFloat((row[2]||'').replace(/,/g,''))||0;
+        if(!isNaN(p)&&p>0)up++;else if(!isNaN(p)&&p<0)dn++;
+        vol+=v;
+      });
+      g('iUp').textContent=up||'—';g('iDn').textContent=dn||'—';
+      g('iVol').textContent=vol?(vol/1e8).toFixed(0):'—';
+    }
+  }catch(e){}
+}
+
+async function refreshAll(){
+  for(const code of wl){
+    const d=await getQ(code);
+    if(d){if(!NAMES[code]&&d.name)NAMES[code]=d.name;sd[code]=d;updateRow(code);checkAlerts(code,d.price);if(code===active)syncBars();}
+    await delay(200);
+  }
+  saveWL();
+}
+function startRefresh(){clearInterval(rfTimer);refreshAll();fetchIndex();rfTimer=setInterval(()=>{refreshAll();fetchIndex();},isDemo?30000:15000);}
+
+// ════════════════════════════════════════
+// RENDER WATCHLISTS
+// ════════════════════════════════════════
+function renderWL(){
+  // desktop
+  const dl=g('wlList');dl.innerHTML='';
+  let cnt=0;
+  wl.forEach(code=>{
+    const d=sd[code];
+    if(dFilter==='up'&&(!d||d.change<=0))return;
+    if(dFilter==='dn'&&(!d||d.change>=0))return;
+    if(dFilter==='vol'&&(!d||d.vol<10000))return;
+    cnt++;
+    const row=document.createElement('div');
+    row.className='wl-row'+(code===active?' sel':'');
+    row.id=`dwr-${code}`;row.onclick=()=>selectStock(code);
+    const cc=d?cc3(d.change):'fl',bg=d?bg3(d.change):'',sign=d&&d.change>0?'+':'';
+    row.innerHTML=`
+      <div class="wl-info">
+        <div class="wl-code">${code}${d?.isLive?'<span style="width:4px;height:4px;border-radius:50%;background:var(--up);display:inline-block;margin-left:4px;animation:blink 1.6s infinite;vertical-align:middle;"></span>':''}</div>
+        <div class="wl-name">${NAMES[code]||'——'}</div>
+      </div>
+      <div class="wl-nums">
+        <div class="wl-price ${cc}">${d?d.price.toFixed(2):'——'}</div>
+        ${d?`<div class="wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`:''}
+      </div>
+      <button class="wl-del" onclick="removeStock(event,'${code}')">×</button>
+    `;
+    dl.appendChild(row);
+  });
+  g('wlCount').textContent=`${cnt} 檔`;
+  // mobile
+  const ml=g('mWlList');ml.innerHTML='';
+  wl.forEach(code=>{
+    const d=sd[code];
+    if(mFilter==='up'&&(!d||d.change<=0))return;
+    if(mFilter==='dn'&&(!d||d.change>=0))return;
+    if(mFilter==='vol'&&(!d||d.vol<10000))return;
+    const row=document.createElement('div');
+    row.className='m-wl-row';row.onclick=()=>{selectStock(code);mShow('det');};
+    const cc=d?cc3(d.change):'fl',bg=d?bg3(d.change):'',sign=d&&d.change>0?'+':'';
+    row.innerHTML=`
+      <div class="m-wl-l">
+        <div class="m-wl-code ${cc}">${code}${d?.isLive?'<span style="width:5px;height:5px;border-radius:50%;background:var(--up);display:inline-block;animation:blink 1.6s infinite;"></span>':''}</div>
+        <div class="m-wl-name">${NAMES[code]||'——'}</div>
+      </div>
+      <div class="m-wl-r">
+        <div class="m-wl-price ${cc}">${d?d.price.toFixed(2):'——'}</div>
+        ${d?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`:''}
+      </div>
+    `;
+    ml.appendChild(row);
+  });
+}
+
+function updateRow(code){
+  // desktop row
+  const row=g(`dwr-${code}`);
+  if(!row){renderWL();return;}
+  const d=sd[code];if(!d)return;
+  const prev=prevP[code];
+  if(prev&&prev!==d.price){row.classList.remove('fu','fd');void row.offsetWidth;row.classList.add(d.price>prev?'fu':'fd');}
+  prevP[code]=d.price;
+  const cc=cc3(d.change),bg=bg3(d.change),sign=d.change>0?'+':'';
+  const pp=row.querySelector('.wl-price'),pb=row.querySelector('.wl-pct');
+  if(pp){pp.className=`wl-price ${cc}`;pp.textContent=d.price.toFixed(2);}
+  if(pb){pb.className=`wl-pct ${cc} ${bg}`;pb.textContent=`${sign}${d.changePct.toFixed(2)}%`;}
+}
+
+// ════════════════════════════════════════
+// SELECT STOCK
+// ════════════════════════════════════════
+function selectStock(code){
+  active=code;renderWL();syncBars();renderAlerts();
+  // show chart area on desktop
+  g('chartEmpty').style.display='none';
+  g('chartContent').style.display='flex';
+  loadChart(code,activeTF);
+}
+
+function syncBars(){
+  const d=sd[active];if(!d)return;
+  const cc=cc3(d.change),sign=d.change>0?'+':'';
+  // desktop chart bar
+  setEl('dCode',active);setEl('dName',d.name||NAMES[active]||'——');
+  setEl('dPrice',d.price.toFixed(2),`big-price ${cc}`);
+  setEl('dChg',`${sign}${d.change.toFixed(2)} (${sign}${d.changePct.toFixed(2)}%)`,`price-chg ${cc}`);
+  setEl('dOpen',d.open?d.open.toFixed(2):'—');
+  setEl('dHigh',d.high?d.high.toFixed(2):'—');
+  setEl('dLow',d.low?d.low.toFixed(2):'—');
+  setEl('dPrev',d.prev?d.prev.toFixed(2):'—');
+  setEl('dVol',d.vol?d.vol.toLocaleString()+'張':'—');
+  const amp=d.high&&d.low&&d.prev?((d.high-d.low)/d.prev*100).toFixed(2)+'%':'—';
+  setEl('dAmp',amp);
+  setEl('dBidAsk',`${d.bid?d.bid.toFixed(2):'—'} / ${d.ask?d.ask.toFixed(2):'—'}`);
+  const srcEl=g('dSrc');
+  if(srcEl){srcEl.className='src-badge '+(d.isLive?'src-live':'src-delay');srcEl.textContent=d.isLive?'即時':'延遲20分';}
+  // info panel
+  setEl('ip-price',d.price.toFixed(2),`kv-v ${cc}`);
+  setEl('ip-pct',`${sign}${d.changePct.toFixed(2)}%`,`kv-v ${cc}`);
+  setEl('ip-high',d.high?d.high.toFixed(2):'—');
+  setEl('ip-low',d.low?d.low.toFixed(2):'—');
+  setEl('ip-open',d.open?d.open.toFixed(2):'—');
+  setEl('ip-prev',d.prev?d.prev.toFixed(2):'—');
+  setEl('ip-vol',d.vol?d.vol.toLocaleString()+'張':'—');
+  setEl('ip-amp',amp);
+  setEl('ip-bid',d.bid?d.bid.toFixed(2):'—');
+  setEl('ip-ask',d.ask?d.ask.toFixed(2):'—');
+  // mobile
+  setEl('mCode',active);setEl('mName',d.name||NAMES[active]||'——');
+  setEl('mPrice',d.price.toFixed(2),`m-price ${cc}`);
+  setEl('mChg',`${sign}${d.change.toFixed(2)} (${sign}${d.changePct.toFixed(2)}%)`,`m-chg ${cc}`);
+  setEl('msOpen',d.open?d.open.toFixed(2):'—');
+  setEl('msHigh',d.high?d.high.toFixed(2):'—');
+  setEl('msLow',d.low?d.low.toFixed(2):'—');
+  setEl('msPrev',d.prev?d.prev.toFixed(2):'—');
+  setEl('msVol',d.vol?d.vol.toLocaleString():'—');
+  setEl('msBid',d.bid?d.bid.toFixed(2):'—');
+  setEl('msAsk',d.ask?d.ask.toFixed(2):'—');
+  setEl('msAmp',amp);
+  const ms=g('mSrc');
+  if(ms){ms.className='m-src '+(d.isLive?'src-live':'src-delay');ms.textContent=d.isLive?'即時':'延遲';}
+}
+
+// ════════════════════════════════════════
+// CHART
+// ════════════════════════════════════════
+function makeChart(elId){
+  const el2=g(elId);if(!el2)return null;
+  el2.innerHTML='';
+  const c=LightweightCharts.createChart(el2,{
+    layout:{background:{color:'transparent'},textColor:'#6b6e82'},
+    grid:{vertLines:{color:'rgba(255,255,255,0.04)'},horzLines:{color:'rgba(255,255,255,0.035)'}},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'rgba(255,255,255,0.05)',scaleMargins:{top:0.08,bottom:0.22}},
+    timeScale:{borderColor:'rgba(255,255,255,0.05)',timeVisible:true,secondsVisible:false,
+      tickMarkFormatter:(t)=>{const d=new Date(t*1000);return(activeTF==='D'||activeTF==='W')?`${d.getMonth()+1}/${d.getDate()}`:`${pad(d.getHours())}:${pad(d.getMinutes())}`;}},
+    handleScroll:true,handleScale:true,
+  });
+  const cs=c.addCandlestickSeries({upColor:'#0ecb81',downColor:'#f6465d',borderUpColor:'#0ecb81',borderDownColor:'#f6465d',wickUpColor:'#0ecb81',wickDownColor:'#f6465d'});
+  const vs=c.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'',scaleMargins:{top:0.82,bottom:0}});
+  const ma5s=c.addLineSeries({color:'#f0a500',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  const ma10s=c.addLineSeries({color:'#3a7bff',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  const ma20s=c.addLineSeries({color:'#e05050',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  const vwapDs=c.addLineSeries({color:'#c084fc',lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,lineStyle:LightweightCharts.LineStyle.Dashed});
+  const vwapWs=c.addLineSeries({color:'#34d399',lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,lineStyle:LightweightCharts.LineStyle.Dashed});
+  const ro=new ResizeObserver(()=>c.resize(el2.clientWidth,el2.clientHeight));
+  ro.observe(el2);
+  return{c,cs,vs,ma5s,ma10s,ma20s,vwapDs,vwapWs};
+}
+
+async function loadChart(code,tf){
+  const showVWAP = (tf==='1'||tf==='5'||tf==='15'||tf==='60');
+  // desktop
+  const inst=makeChart('chartEl');
+  if(inst){dChart=inst.c;dCS=inst.cs;dVS=inst.vs;dMA5=inst.ma5s;dMA10=inst.ma10s;dMA20=inst.ma20s;dVWAP_D=inst.vwapDs;dVWAP_W=inst.vwapWs;}
+  const spinEl=g('chartOverlay');
+  if(spinEl)spinEl.style.display='flex';
+  lastTick=null;
+  let candles=null;
+  if(!isDemo&&apiKey)candles=await fugleCandles(code,tf);
+  // 盤中/分K拿不到時，自動 fallback 到日K歷史資料
+  if((!candles||!candles.length)&&tf!=='D'&&tf!=='W'&&apiKey){
+    candles=await fugleCandles(code,'D');
+    if(candles&&candles.length){
+      // 切換時間軸顯示格式為日期
+      try{if(dChart)dChart.applyOptions({timeScale:{tickMarkFormatter:(t)=>{const d=new Date(t*1000);return`${d.getMonth()+1}/${d.getDate()}`;}}})}catch(e){}
+    }
+  }
+  if(!candles||!candles.length)candles=simCandles(sd[code]);
+  applyCandles(dCS,dVS,candles);
+  applyMA(dMA5,dMA10,dMA20,candles,'maLegend');
+  if(showVWAP){
+    applyVWAP(dVWAP_D,dVWAP_W,candles,sd[code]?.price);
+    const vb=g('vwapBar');if(vb)vb.style.display='block';
+    const dt=g('vwapDtag'),wt=g('vwapWtag');
+    if(dt)dt.style.display='flex';if(wt)wt.style.display='flex';
+  } else {
+    try{if(dVWAP_D)dVWAP_D.setData([]);if(dVWAP_W)dVWAP_W.setData([]);}catch(e){}
+    const vb=g('vwapBar');if(vb)vb.style.display='none';
+    const dt=g('vwapDtag'),wt=g('vwapWtag');
+    if(dt)dt.style.display='none';if(wt)wt.style.display='none';
+  }
+  if(dChart)dChart.timeScale().fitContent();
+  if(spinEl)spinEl.style.display='none';
+  // mobile (if visible)
+  if(isMob()){
+    const minst=makeChart('mChartEl');
+    if(minst){mChart=minst.c;mCS=minst.cs;mVS=minst.vs;mMA5=minst.ma5s;mMA10=minst.ma10s;mMA20=minst.ma20s;mVWAP_D=minst.vwapDs;mVWAP_W=minst.vwapWs;}
+    const ms=g('mChartSpin');if(ms)ms.style.display='flex';
+    applyCandles(mCS,mVS,candles);
+    applyMA(mMA5,mMA10,mMA20,candles,'mMaLegend');
+    if(showVWAP)applyVWAP(mVWAP_D,mVWAP_W,candles,sd[code]?.price,true);
+    else{try{if(mVWAP_D)mVWAP_D.setData([]);if(mVWAP_W)mVWAP_W.setData([]);}catch(e){}}
+    if(mChart)mChart.timeScale().fitContent();
+    if(ms)ms.style.display='none';
+  }
+}
+
+// ════════════════════════════════════════
+// VWAP（生命線）
+// ════════════════════════════════════════
+function getISOWeek(d){
+  const t=new Date(d);t.setHours(0,0,0,0);
+  t.setDate(t.getDate()+3-(t.getDay()+6)%7);
+  const w=new Date(t.getFullYear(),0,4);
+  return 1+Math.round(((t-w)/86400000-3+(w.getDay()+6)%7)/7);
+}
+function calcVWAP_Daily(candles){
+  let cumPV=0,cumV=0,curDay=null;
+  return candles.map(c=>{
+    const d=new Date(c.time*1000);
+    const day=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if(day!==curDay){cumPV=0;cumV=0;curDay=day;}
+    const hlc3=(c.high+c.low+c.close)/3;
+    cumPV+=hlc3*(c.volume||1);cumV+=(c.volume||1);
+    return{time:c.time,value:cumV?+(cumPV/cumV).toFixed(2):null};
+  }).filter(p=>p.value!=null);
+}
+function calcVWAP_Weekly(candles){
+  let cumPV=0,cumV=0,curWk=null;
+  return candles.map(c=>{
+    const d=new Date(c.time*1000);
+    const wk=`${d.getFullYear()}-W${getISOWeek(d)}`;
+    if(wk!==curWk){cumPV=0;cumV=0;curWk=wk;}
+    const hlc3=(c.high+c.low+c.close)/3;
+    cumPV+=hlc3*(c.volume||1);cumV+=(c.volume||1);
+    return{time:c.time,value:cumV?+(cumPV/cumV).toFixed(2):null};
+  }).filter(p=>p.value!=null);
+}
+function applyVWAP(vwapDs,vwapWs,candles,curPrice,isMobile=false){
+  if(!vwapDs||!vwapWs||!candles||!candles.length)return;
+  const seen=new Set();
+  const clean=candles.filter(c=>{if(seen.has(c.time))return false;seen.add(c.time);return true;}).sort((a,b)=>a.time-b.time);
+  const daily=calcVWAP_Daily(clean);
+  const weekly=calcVWAP_Weekly(clean);
+  try{vwapDs.setData(daily);vwapWs.setData(weekly);}catch(e){}
+  if(isMobile)return;
+  // update status bar + legend
+  const dLast=daily.length?daily[daily.length-1].value:null;
+  const wLast=weekly.length?weekly[weekly.length-1].value:null;
+  const p=curPrice||0;
+  function distStr(price,vwap){
+    if(!vwap||!price)return'—';
+    const pct=((price-vwap)/vwap*100);
+    return(pct>=0?'+':'')+pct.toFixed(2)+'%';
+  }
+  function statusTxt(price,vwap){
+    if(!vwap||!price)return'—';
+    const diff=Math.abs(price-vwap)/vwap;
+    if(diff<0.002)return'生命線附近';
+    return price>vwap?'生命線上方':'生命線下方';
+  }
+  function statusCls(price,vwap){
+    if(!vwap||!price)return'fl';
+    const diff=Math.abs(price-vwap)/vwap;
+    if(diff<0.002)return'fl';
+    return price>vwap?'up':'dn';
+  }
+  // status bar
+  const dv=g('vwapDval'),ds=g('vwapDst'),wv=g('vwapWval'),ws2=g('vwapWst'),dual=g('vwapDual');
+  if(dv){dv.textContent=dLast?dLast.toFixed(2):'—';dv.className=`vwap-val ${statusCls(p,dLast)}`;}
+  if(ds){ds.textContent=`${statusTxt(p,dLast)}　${distStr(p,dLast)}`;ds.className=`vwap-status ${statusCls(p,dLast)}`;}
+  if(wv){wv.textContent=wLast?wLast.toFixed(2):'—';wv.className=`vwap-val ${statusCls(p,wLast)}`;}
+  if(ws2){ws2.textContent=`${statusTxt(p,wLast)}　${distStr(p,wLast)}`;ws2.className=`vwap-status ${statusCls(p,wLast)}`;}
+  // dual status
+  let dualTxt='—';
+  if(dLast&&wLast&&p){
+    const aboveD=p>dLast,aboveW=p>wLast;
+    if(aboveD&&aboveW)dualTxt='⬆ 雙生命線上方';
+    else if(!aboveD&&!aboveW)dualTxt='⬇ 雙生命線下方';
+    else if(aboveD&&!aboveW)dualTxt='當沖線上方 ／ 波段線下方';
+    else dualTxt='當沖線下方 ／ 波段線上方';
+  }
+  if(dual)dual.textContent=dualTxt;
+  // legend
+  const vdl=g('vwapDlegend'),vwl=g('vwapWlegend');
+  if(vdl&&dLast)vdl.textContent=dLast.toFixed(2);
+  if(vwl&&wLast)vwl.textContent=wLast.toFixed(2);
+}
+
+function calcMA(candles,period){
+  return candles.map((c,i)=>{
+    if(i<period-1)return null;
+    const sum=candles.slice(i-period+1,i+1).reduce((a,b)=>a+b.close,0);
+    return{time:c.time,value:+(sum/period).toFixed(2)};
+  }).filter(Boolean);
+}
+function applyMA(ma5s,ma10s,ma20s,candles,legendId){
+  if(!ma5s||!ma10s||!ma20s||!candles||!candles.length)return;
+  const seen=new Set();
+  const clean=candles.filter(c=>{if(seen.has(c.time))return false;seen.add(c.time);return true;}).sort((a,b)=>a.time-b.time);
+  try{
+    ma5s.setData(calcMA(clean,5));
+    ma10s.setData(calcMA(clean,10));
+    ma20s.setData(calcMA(clean,20));
+    const leg=g(legendId);if(leg)leg.style.display='flex';
+    // update legend values
+    const last=clean[clean.length-1];
+    const m5=calcMA(clean,5),m10=calcMA(clean,10),m20=calcMA(clean,20);
+    if(legendId==='maLegend'){
+      const v5=g('ma5val'),v10=g('ma10val'),v20=g('ma20val');
+      if(v5&&m5.length)v5.textContent=m5[m5.length-1].value;
+      if(v10&&m10.length)v10.textContent=m10[m10.length-1].value;
+      if(v20&&m20.length)v20.textContent=m20[m20.length-1].value;
+    }
+  }catch(e){}
+}
+function applyCandles(cs,vs,raw){
+  if(!cs||!vs||!raw)return;
+  const seen=new Set();
+  const clean=raw.filter(c=>{if(seen.has(c.time))return false;seen.add(c.time);return true;}).sort((a,b)=>a.time-b.time);
+  cs.setData(clean);
+  vs.setData(clean.map(c=>({time:c.time,value:c.volume||0,color:c.close>=c.open?'rgba(14,203,129,.2)':'rgba(246,70,93,.2)'})));
+  if(clean.length)lastTick={...clean[clean.length-1]};
+}
+
+function pushTick(time,price,size){
+  const bt=Math.floor(time/60)*60;
+  if(lastTick){
+    if(bt===lastTick.time){lastTick.close=price;lastTick.high=Math.max(lastTick.high,price);lastTick.low=Math.min(lastTick.low,price);lastTick.volume=(lastTick.volume||0)+size;}
+    else{lastTick={time:bt,open:price,high:price,low:price,close:price,volume:size};}
+    const cv={time:lastTick.time,value:lastTick.volume,color:lastTick.close>=lastTick.open?'rgba(14,203,129,.2)':'rgba(246,70,93,.2)'};
+    try{if(dCS)dCS.update(lastTick);if(dVS)dVS.update(cv);if(mCS)mCS.update(lastTick);if(mVS)mVS.update(cv);}catch(e){}
+  }
+}
+
+function setTF(tf){
+  activeTF=tf;
+  const labelMap={'1':['1分K','1分'],'5':['5分K','5分'],'15':['15分K','15分'],'60':['60分K','60分'],'D':['日K'],'W':['週K']};
+  const labels=labelMap[tf]||[];
+  document.querySelectorAll('.tf-btn,.m-tf').forEach(b=>{
+    b.classList.toggle('on',labels.includes(b.textContent.trim()));
+  });
+  if(active)loadChart(active,tf);
+}
+
+// ════════════════════════════════════════
+// ALERTS
+// ════════════════════════════════════════
+function addAlert(){
+  if(!active){toast('請先選擇個股');return;}
+  const v=parseFloat(g('dAlertInp').value);
+  if(isNaN(v)||v<=0){toast('請輸入有效目標價');return;}
+  if(!alerts[active])alerts[active]=[];
+  if(alerts[active].includes(v)){toast('已設定');return;}
+  alerts[active].push(v);saveAlerts();renderAlerts();toast(`設定到價提醒：${v}`);
+}
+function addAlertM(){
+  if(!active){toast('請先選擇個股');return;}
+  const v=parseFloat(g('mAlertInp').value);
+  if(isNaN(v)||v<=0){toast('請輸入有效目標價');return;}
+  if(!alerts[active])alerts[active]=[];
+  if(!alerts[active].includes(v)){alerts[active].push(v);saveAlerts();renderAlerts();toast(`設定到價提醒：${v}`);}
+}
+function removeAlert(code,price){alerts[code]=(alerts[code]||[]).filter(a=>a!==price);saveAlerts();renderAlerts();}
+function renderAlerts(){
+  if(!active)return;
+  const tags=(alerts[active]||[]).map(a=>`<div class="atag">${a}<span class="atag-x" onclick="removeAlert('${active}',${a})">×</span></div>`).join('');
+  const da=g('dAlertTags'),ma=g('mAlertTags');
+  if(da)da.innerHTML=tags;if(ma)ma.innerHTML=tags;
+}
+function checkAlerts(code,price){
+  (alerts[code]||[]).forEach(t=>{
+    if(Math.abs(price-t)/t<0.005){
+      toast(`⚡ ${NAMES[code]||code} 接近目標價 ${t}`);
+      if('Notification' in window&&Notification.permission==='granted')
+        new Notification(NAMES[code]||code,{body:`現價 ${price}，目標 ${t}`});
+    }
+  });
+}
+function saveAlerts(){localStorage.setItem('al_v4',JSON.stringify(alerts));}
+
+// ════════════════════════════════════════
+// ADD / REMOVE
+// ════════════════════════════════════════
+async function addStockCore(code){
+  code=code.trim().replace(/\D/g,'');
+  if(!code||code.length<4){toast('請輸入4-6碼股票代號');return;}
+  if(wl.includes(code)){toast(`${code} 已在清單中`);return;}
+  wl.push(code);renderWL();
+  const d=await getQ(code);
+  if(d){if(!NAMES[code]&&d.name)NAMES[code]=d.name;sd[code]=d;renderWL();toast(`已新增 ${d.name||code}`);if(!isDemo&&wsOk)wsSub(code);}
+  else{toast(`找不到代號 ${code}`);wl=wl.filter(c=>c!==code);renderWL();}
+  saveWL();
+}
+function addStock(){const v=g('wlInp').value;g('wlInp').value='';addStockCore(v);}
+function mAddStock(){const v=g('mWlInp').value;g('mWlInp').value='';addStockCore(v);}
+function removeStock(e,code){e.stopPropagation();wl=wl.filter(c=>c!==code);if(active===code){active=null;g('chartEmpty').style.display='flex';g('chartContent').style.display='none';}renderWL();saveWL();toast(`已移除 ${NAMES[code]||code}`);}
+
+// ════════════════════════════════════════
+// FILTERS
+// ════════════════════════════════════════
+function setDF(f){dFilter=f;['all','up','dn','vol'].forEach(k=>g(`dft-${k}`)?.classList.toggle('on',k===f));renderWL();}
+function setMF(f){mFilter=f;['all','up','dn','vol'].forEach(k=>g(`mft-${k}`)?.classList.toggle('on',k===f));renderWL();}
+
+// ════════════════════════════════════════
+// INFO TABS (desktop col 3)
+// ════════════════════════════════════════
+function setITab(t){
+  ['info','alert','scr'].forEach(k=>{
+    g(`itab-${k}`).classList.toggle('on',k===t);
+    g(`ipanel-${k}`).style.display=k===t?'block':'none';
+  });
+  if(t==='scr')renderDScr();
+}
+function renderDScr(){
+  const b=g('dScrBody');if(!b)return;
+  b.innerHTML=`
+    <div class="scr-lbl">股價區間（NTD）</div>
+    <div class="scr-range">
+      <input class="scr-inp" id="dScrPMin" value="30">
+      <span class="scr-sep">—</span>
+      <input class="scr-inp" id="dScrPMax" value="300">
+    </div>
+    <div class="scr-lbl">成交量（張以上）</div>
+    <div class="scr-range">
+      <input class="scr-inp" id="dScrVMin" value="1000" style="width:100%">
+    </div>
+    <div class="scr-lbl">排除</div>
+    <div class="scr-chips">
+      <button class="schip on" id="dex-bank" onclick="this.classList.toggle('on')">金融股</button>
+      <button class="schip" id="dex-etf" onclick="this.classList.toggle('on')">ETF</button>
+    </div>
+    <div class="scr-lbl">訊號篩選</div>
+    <div class="scr-chips">
+      <button class="schip" onclick="toggleSig(this)">量價齊揚</button>
+      <button class="schip" onclick="toggleSig(this)">突破盤整</button>
+      <button class="schip" onclick="toggleSig(this)">強勢創高</button>
+    </div>
+    <button class="btn-scan" onclick="runScan('dScrBody')">開始篩選</button>
+    <div id="dScrResults"></div>
+  `;
+}
+function toggleSig(btn){document.querySelectorAll('.scr-body .schip[onclick*=toggleSig]').forEach(b=>b!==btn&&b.classList.remove('on'));btn.classList.toggle('on');}
+
+// ════════════════════════════════════════
+// MOBILE NAV
+// ════════════════════════════════════════
+function mShow(tab){
+  ['wl','det','scr'].forEach(t=>{
+    g(`ms-${t}`).classList.toggle('show',t===tab);
+    g(`mnav-${t}`).classList.toggle('on',t===tab);
+  });
+  if(tab==='det'&&active)loadChart(active,activeTF);
+  if(tab==='scr')renderMScr();
+}
+function mGoBack(){mShow('wl');}
+
+function renderMScr(){
+  const w=g('mScrWrap');if(!w)return;
+  if(w.innerHTML.trim())return; // already rendered
+  w.innerHTML=`
+    <div class="m-scr-lbl">股價區間（NTD）</div>
+    <div class="m-scr-range">
+      <input class="m-scr-inp" id="mScrPMin" value="30" placeholder="最低">
+      <span style="color:var(--tx3);flex-shrink:0">—</span>
+      <input class="m-scr-inp" id="mScrPMax" value="300" placeholder="最高">
+    </div>
+    <div class="m-scr-lbl">成交量門檻（張以上）</div>
+    <input class="m-scr-inp" id="mScrVMin" value="1000" style="width:100%;margin-bottom:6px">
+    <div class="m-scr-lbl">排除條件</div>
+    <div class="m-chips">
+      <button class="mchip on" id="mex-bank" onclick="this.classList.toggle('on')">金融股</button>
+      <button class="mchip" id="mex-etf" onclick="this.classList.toggle('on')">ETF</button>
+    </div>
+    <div class="m-scr-lbl">訊號篩選</div>
+    <div class="m-chips">
+      <button class="mchip" onclick="toggleMSig(this)">量價齊揚</button>
+      <button class="mchip" onclick="toggleMSig(this)">突破盤整</button>
+      <button class="mchip" onclick="toggleMSig(this)">強勢創高</button>
+    </div>
+    <button class="m-btn-scan" onclick="runScan('mScrWrap')">開始篩選</button>
+    <div class="m-scr-results" id="mScrResults"></div>
+  `;
+}
+function toggleMSig(btn){document.querySelectorAll('#mScrWrap .mchip[onclick*=toggleMSig]').forEach(b=>b!==btn&&b.classList.remove('on'));btn.classList.toggle('on');}
+
+// ════════════════════════════════════════
+// SCREENER
+// ════════════════════════════════════════
+async function runScan(containerId){
+  const isMobile=containerId==='mScrWrap';
+  const pre=isMobile?'mScrP':'dScrP',vPre=isMobile?'mScrV':'dScrV';
+  const pMin=parseFloat(g(pre+'Min')?.value)||30;
+  const pMax=parseFloat(g(pre+'Max')?.value)||300;
+  const vMin=parseFloat(g(vPre+'Min')?.value)||1000;
+  const exBank=(g((isMobile?'mex':'dex')+'-bank'))?.classList.contains('on');
+  const exEtf=(g((isMobile?'mex':'dex')+'-etf'))?.classList.contains('on');
+  const resId=isMobile?'mScrResults':'dScrResults';
+  g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--tx3);">篩選中...</div>`;
+  try{
+    const n=new Date(),ds=`${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}`;
+    const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?date=${ds}&response=json&_=${Date.now()}`);
+    const j=await r.json();
+    if(j.stat!=='OK'||!j.data){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--dn);">無法取得資料</div>`;return;}
+    const results=j.data.filter(row=>{
+      const code=row[0],price=parseFloat((row[4]||'').replace(/,/g,'')),vol=parseFloat((row[1]||'').replace(/,/g,''));
+      if(isNaN(price)||price<pMin||price>pMax)return false;
+      if(isNaN(vol)||vol<vMin)return false;
+      if(exBank&&BANK.includes(code))return false;
+      if(exEtf&&(code.startsWith('00')||code.length>4))return false;
+      return true;
+    }).sort((a,b)=>(parseFloat((b[1]||'').replace(/,/g,''))||0)-(parseFloat((a[1]||'').replace(/,/g,''))||0)).slice(0,25).map(row=>{
+      const code=row[0],price=parseFloat((row[4]||'').replace(/,/g,'')),
+            vol=parseFloat((row[1]||'').replace(/,/g,''))||0,
+            chgPct=parseFloat((row[9]||'').replace(/[+%]/g,''))||0,
+            chg=parseFloat((row[8]||'').replace(/,/g,'').replace(/[+]/g,''))||0;
+      return{code,name:NAMES[code]||code,price,vol,chg,chgPct};
+    });
+    if(!results.length){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--tx3);">無符合條件個股</div>`;return;}
+    const cardClass=isMobile?'m-scr-card':'scr-card';
+    g(resId).innerHTML=`
+      <div style="font-size:9px;color:var(--tx3);margin-bottom:6px;">符合 ${results.length} 檔（依成交量排序）</div>
+      ${results.map(r=>{
+        const cc=r.chg>0?'up':r.chg<0?'dn':'fl',bg=r.chg>0?'up-bg':r.chg<0?'dn-bg':'',sign=r.chg>0?'+':'';
+        return`<div class="${cardClass}" onclick="pickScr('${r.code}','${r.name}')">
+          <div><div class="scr-c ${cc}">${r.code}</div><div class="scr-n">${r.name}</div></div>
+          <div class="scr-card-r"><div class="scr-p ${cc}">${r.price.toFixed(2)}</div><div class="scr-pct ${cc} ${bg}">${sign}${r.chgPct.toFixed(2)}%</div></div>
+        </div>`;
+      }).join('')}
+      <div style="font-size:9px;color:var(--tx3);margin-top:8px;text-align:center;">點擊加入觀察清單｜TWSE 盤後資料</div>
+    `;
+  }catch(e){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--dn);">網路錯誤，請稍後再試</div>`;}
+}
+
+async function pickScr(code,name){
+  if(!NAMES[code])NAMES[code]=name;
+  if(!wl.includes(code)){wl.push(code);saveWL();const d=await getQ(code);if(d){sd[code]=d;}renderWL();toast(`已加入：${name}`);}
+  selectStock(code);
+  if(isMob())mShow('det');
+  else setITab('info');
+}
+
+// ════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════
+function g(id){return document.getElementById(id);}
+function cc3(v){return v>0?'up':v<0?'dn':'fl';}
+function bg3(v){return v>0?'up-bg':v<0?'dn-bg':'';}
+function pad(x){return String(x).padStart(2,'0');}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+function saveWL(){localStorage.setItem('wl_v4',JSON.stringify(wl));}
+function setEl(id,txt,cls){const el=g(id);if(!el)return;el.textContent=txt;if(cls)el.className=cls;}
+function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ════════════════════════════════════════
+// KEYBOARD
+// ════════════════════════════════════════
+g('wlInp')?.addEventListener('keydown',e=>{if(e.key==='Enter')addStock();});
+g('mWlInp')?.addEventListener('keydown',e=>{if(e.key==='Enter')mAddStock();});
+
+// ════════════════════════════════════════
+// NOTIFICATION
+// ════════════════════════════════════════
+if('Notification' in window&&Notification.permission==='default')setTimeout(()=>Notification.requestPermission(),3000);
+
+// ════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════
+if(apiKey){closeModal();initWS();}
+else{openModal();}
+renderWL();
+startRefresh();
+</script>
+</body>
+</html>
