@@ -1086,6 +1086,8 @@ const NAMES={
   '2379':'瑞昱','2408':'南亞科','6669':'緯穎','2474':'可成','4938':'和碩',
   '0050':'元大台灣50','0056':'元大高股息','00878':'國泰永續高股息',
   '2615':'萬海','2603':'長榮','2609':'陽明','2610':'華航','2618':'長榮航',
+  // 期貨
+  'TX':'台指期','MTX':'小台指','TE':'電子期','TF':'金融期',
 };
 const BANK=['2881','2882','2883','2884','2885','2886','2887','2888','2889','2890','2891','2892'];
 
@@ -1192,6 +1194,81 @@ async function twseQ(code,ex='tse'){
       change:chg,changePct:prev?chg/prev*100:0,isLive:false,ex};
   }catch(e){return null;}
 }
+// ════════════════════════════════════════
+// 台指期（期貨）查詢
+// ════════════════════════════════════════
+const FUT_MAP={
+  'TX':  {sym:'TXFA5',name:'台指期',unit:'點'},
+  'MTX': {sym:'MXFA5',name:'小台指',unit:'點'},
+  'TE':  {sym:'TEFA5',name:'電子期',unit:'點'},
+  'TF':  {sym:'TFFA5',name:'金融期',unit:'點'},
+};
+function isFutures(code){return!!FUT_MAP[code?.toUpperCase()];}
+
+async function futQ(code){
+  const info=FUT_MAP[code?.toUpperCase()];
+  if(!info)return null;
+  try{
+    // TWSE mis API 支援台指期近月
+    const sym=info.sym;
+    const r=await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${sym}.tw&_=${Date.now()}`);
+    const j=await r.json();
+    const d=j.msgArray?.[0];
+    if(d){
+      const price=parseFloat(d.z)||parseFloat(d.y)||0;
+      const prev=parseFloat(d.y)||0;
+      const chg=prev?price-prev:0;
+      return{
+        code,name:info.name,price,open:parseFloat(d.o)||0,
+        high:parseFloat(d.h)||0,low:parseFloat(d.l)||0,
+        prev,vol:parseInt(d.v)||0,bid:parseFloat(d.b?.split('_')[0])||0,
+        ask:parseFloat(d.a?.split('_')[0])||0,
+        change:chg,changePct:prev?chg/prev*100:0,
+        isLive:true,ex:'futures',unit:info.unit,
+      };
+    }
+  }catch(e){}
+  return null;
+}
+
+// TAIFEX 歷史日K（台指期）
+async function taifexDayCandles(code){
+  const info=FUT_MAP[code?.toUpperCase()];
+  if(!info)return null;
+  try{
+    // 取近三個月，用期交所公開資料（近月合約代號 TX 對應 TXF）
+    const prodMap={TX:'TXF',MTX:'MXF',TE:'TEF',TF:'TFF'};
+    const prod=prodMap[code.toUpperCase()]||'TXF';
+    // TAIFEX 每日盤後資料（近 60 個交易日）
+    const r=await fetch(`https://www.taifex.com.tw/cht/3/futDataDown?down_type=1&queryStartDate=&queryEndDate=&commodity_id=${prod}&contract_month_year=&market_code=0&dateaddcnt=-60&commodity_id2=TXF`,{
+      headers:{Referer:'https://www.taifex.com.tw/'},
+    });
+    if(!r.ok)return null;
+    const text=await r.text();
+    const lines=text.split('\n').filter(l=>l.trim());
+    const out=[];
+    for(const line of lines){
+      const cols=line.split(',').map(s=>s.trim().replace(/"/g,''));
+      // 格式：日期,契約,到期月份,開盤,最高,最低,收盤,成交量...
+      if(cols.length<8||!/^\d{4}\/\d{2}\/\d{2}$/.test(cols[0]))continue;
+      if(cols[2]&&cols[2]!==cols[2].substring(0,6)){}// 跳過非近月？先全取
+      const [y,m,day]=cols[0].split('/').map(Number);
+      const t=Math.floor(new Date(y,m-1,day,8,0,0).getTime()/1000);
+      const o=parseFloat(cols[3].replace(/,/g,''));
+      const h=parseFloat(cols[4].replace(/,/g,''));
+      const l=parseFloat(cols[5].replace(/,/g,''));
+      const c=parseFloat(cols[6].replace(/,/g,''));
+      const v=parseInt(cols[7].replace(/,/g,''))||0;
+      if(o&&h&&l&&c&&!isNaN(o))out.push({time:t,open:o,high:h,low:l,close:c,volume:v});
+    }
+    // 依時間排序、去重，取最近 120 筆
+    const seen=new Set();
+    return out.filter(x=>{if(seen.has(x.time))return false;seen.add(x.time);return true;})
+              .sort((a,b)=>a.time-b.time).slice(-120);
+  }catch(e){return null;}
+}
+
+// ════════════════════════════════════════
 // 從 TWSE 收盤資料取股名（title 格式：「臺灣證券交易所 3450 聯鈞 各日成交資訊」）
 function parseNameFromTitle(title,code){
   if(!title)return null;
@@ -1234,7 +1311,8 @@ async function fetchStockName(code){
 
 // 自動試上市(tse)再試上櫃(otc)，同時嘗試 twse 收盤資料 API 作為備援
 async function getQ(code){
-  if(!isDemo&&apiKey){const r=await fugleQ(code);if(r){if(!NAMES[code]&&r.name&&r.name!==code)NAMES[code]=r.name;return r;}}
+  // 期貨走獨立路徑
+  if(isFutures(code))return futQ(code);
   const tse=await twseQ(code,'tse');if(tse){if(!NAMES[code]&&tse.name&&tse.name!==code)NAMES[code]=tse.name;return tse;}
   const otc=await twseQ(code,'otc');if(otc){if(!NAMES[code]&&otc.name&&otc.name!==code)NAMES[code]=otc.name;return otc;}
   // 備援：TWSE/TPEx 收盤資料（盤後/週末仍可查）
@@ -1358,7 +1436,7 @@ function renderWL(){
         <div class="wl-name">${NAMES[code]||'——'}</div>
       </div>
       <div class="wl-nums">
-        <div class="wl-price ${cc}">${d?d.price.toFixed(2):'——'}</div>
+        <div class="wl-price ${cc}">${d?fmtPrice(d):'——'}</div>
         ${d?`<div class="wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`:''}
         ${vdStr?`<div class="wl-vd ${vdCls}">VWAP ${vdStr}</div>`:''}
       </div>
@@ -1383,7 +1461,7 @@ function renderWL(){
         <div class="m-wl-name">${NAMES[code]||'——'}</div>
       </div>
       <div class="m-wl-r">
-        <div class="m-wl-price ${cc}">${d?d.price.toFixed(2):'——'}</div>
+        <div class="m-wl-price ${cc}">${d?fmtPrice(d):'——'}</div>
         ${d?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`:''}
       </div>
     `;
@@ -1401,7 +1479,7 @@ function updateRow(code){
   prevP[code]=d.price;
   const cc=cc3(d.change),bg=bg3(d.change),sign=d.change>0?'+':'';
   const pp=row.querySelector('.wl-price'),pb=row.querySelector('.wl-pct');
-  if(pp){pp.className=`wl-price ${cc}`;pp.textContent=d.price.toFixed(2);}
+  if(pp){pp.className=`wl-price ${cc}`;pp.textContent=fmtPrice(d);}
   if(pb){pb.className=`wl-pct ${cc} ${bg}`;pb.textContent=`${sign}${d.changePct.toFixed(2)}%`;}
 }
 
@@ -1415,6 +1493,15 @@ function selectStock(code){
   g('chartContent').style.display='flex';
   g('costRow').style.display='flex';
   g('indRow').style.display='flex';
+  // 期貨只支援日K
+  const fut=isFutures(code);
+  document.querySelectorAll('.tf-btn,.m-tf').forEach(b=>{
+    const txt=b.textContent.trim();
+    const isDay=txt==='日K'||txt==='D';
+    if(fut){b.disabled=!isDay&&txt!=='週K';b.style.opacity=(!isDay&&txt!=='週K')?'0.3':'1';}
+    else{b.disabled=false;b.style.opacity='1';}
+  });
+  if(fut&&!['D','W'].includes(activeTF)){activeTF='D';}
   loadChart(code,activeTF);
   updateCostPnl();
 }
@@ -1424,8 +1511,9 @@ function syncBars(){
   const cc=cc3(d.change),sign=d.change>0?'+':'';
   // desktop chart bar
   setEl('dCode',active);setEl('dName',d.name||NAMES[active]||'——');
-  setEl('dPrice',d.price.toFixed(2),`big-price ${cc}`);
-  setEl('dChg',`${sign}${d.change.toFixed(2)} (${sign}${d.changePct.toFixed(2)}%)`,`price-chg ${cc}`);
+  setEl('dPrice',fmtPrice(d),`big-price ${cc}`);
+  const chgFmt=d.ex==='futures'?Math.round(d.change).toLocaleString():d.change.toFixed(2);
+  setEl('dChg',`${sign}${chgFmt} (${sign}${d.changePct.toFixed(2)}%)`,`price-chg ${cc}`);
   setEl('dOpen',d.open?d.open.toFixed(2):'—');
   setEl('dHigh',d.high?d.high.toFixed(2):'—');
   setEl('dLow',d.low?d.low.toFixed(2):'—');
@@ -1495,7 +1583,8 @@ function makeChart(elId){
 }
 
 async function loadChart(code,tf){
-  const showVWAP = (tf!=='D'&&tf!=='W'); // 所有分鐘週期都顯示 VWAP
+  const isFut=isFutures(code);
+  const showVWAP = (!isFut&&tf!=='D'&&tf!=='W'); // 期貨或日/週K不顯示VWAP
   // desktop
   const inst=makeChart('chartEl');
   if(inst){dChart=inst.c;dCS=inst.cs;dVS=inst.vs;dMA5=inst.ma5s;dMA10=inst.ma10s;dMA20=inst.ma20s;dVWAP_D=inst.vwapDs;dVWAP_W=inst.vwapWs;}
@@ -1503,6 +1592,11 @@ async function loadChart(code,tf){
   if(spinEl)spinEl.style.display='flex';
   lastTick=null;
   let candles=null;
+  if(isFut){
+    // 期貨只支援日K
+    candles=await taifexDayCandles(code);
+    if(dChart)dChart.applyOptions({timeScale:{tickMarkFormatter:(t)=>{const d=new Date(t*1000);return`${d.getMonth()+1}/${d.getDate()}`;}}});
+  } else {
   if(!isDemo&&apiKey)candles=await fugleCandles(code,tf);
   // 盤中/分K拿不到時，自動 fallback 到日K歷史資料
   if((!candles||!candles.length)&&tf!=='D'&&tf!=='W'&&apiKey){
@@ -1512,7 +1606,9 @@ async function loadChart(code,tf){
       try{if(dChart)dChart.applyOptions({timeScale:{tickMarkFormatter:(t)=>{const d=new Date(t*1000);return`${d.getMonth()+1}/${d.getDate()}`;}}})}catch(e){}
     }
   }
-  if(!candles||!candles.length)candles=simCandles(sd[code]);
+  if(!isFut)if(!candles||!candles.length)candles=simCandles(sd[code]);
+  } // end non-futures block
+  if(!candles||!candles.length){if(spinEl)spinEl.style.display='none';toast('⚠️ 無法取得K線資料');return;}
   window._lastCandles=candles;
   applyCandles(dCS,dVS,candles);
   applyMA(dMA5,dMA10,dMA20,candles,'maLegend');
@@ -1762,9 +1858,10 @@ function saveAlerts(){localStorage.setItem('al_v4',JSON.stringify(alerts));}
 // ADD / REMOVE
 // ════════════════════════════════════════
 async function addStockCore(code){
-  code=(code||'').trim().replace(/\D/g,'');
+  code=(code||'').trim().toUpperCase();
+  if(!isFutures(code))code=code.replace(/\D/g,'');
   if(!code){toast('請輸入股票代號');return;}
-  if(code.length<4||code.length>6){toast('代號應為4-6碼（如 2330、00878）');return;}
+  if(!isFutures(code)&&(code.length<4||code.length>6)){toast('代號應為4-6碼（如 2330、00878）或期貨代號（TX、MTX）');return;}
   if(wl.includes(code)){toast(`${code} 已在清單中`);selectStock(code);return;}
   toast(`查詢 ${code} 中...`);
   wl.push(code);renderWL();
@@ -1935,6 +2032,7 @@ function g(id){return document.getElementById(id);}
 function cc3(v){return v>0?'up':v<0?'dn':'fl';}
 function bg3(v){return v>0?'up-bg':v<0?'dn-bg':'';}
 function pad(x){return String(x).padStart(2,'0');}
+function fmtPrice(d){return d?.ex==='futures'?Math.round(d.price).toLocaleString():d?.price?.toFixed(2)||'——';}
 function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 function saveWL(){localStorage.setItem('wl_v4',JSON.stringify(wl));}
 function setEl(id,txt,cls){const el=g(id);if(!el)return;el.textContent=txt;if(cls)el.className=cls;}
@@ -2332,6 +2430,10 @@ async function loadStockDB(){
       if(code&&name)stockDB.push({code,name,ex:'上櫃'});
     });
   }catch(e){}
+  // 補入期貨
+  Object.entries(FUT_MAP).forEach(([code,info])=>{
+    if(!stockDB.find(x=>x.code===code))stockDB.push({code,name:info.name,ex:'期貨'});
+  });
   // 補入已知的 NAMES
   Object.entries(NAMES).forEach(([code,name])=>{
     if(!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:''});
