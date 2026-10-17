@@ -821,7 +821,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
       </div>
       <!-- 進階指標 -->
       <div class="ind-row" id="indRow" style="display:none;">
-        <span style="font-size:10px;color:var(--tx3);">指標：</span>
+        <span style="font-size:10px;color:var(--tx3);">均線：</span>
+        <button class="ind-btn on" id="maBtn5" onclick="toggleMA(5)" style="border-color:#f0a500;color:#f0a500;background:rgba(240,165,0,.1);">MA5</button>
+        <button class="ind-btn on" id="maBtn10" onclick="toggleMA(10)" style="border-color:#3a7bff;color:#3a7bff;background:rgba(58,123,255,.1);">MA10</button>
+        <button class="ind-btn on" id="maBtn20" onclick="toggleMA(20)" style="border-color:#e05050;color:#e05050;background:rgba(224,80,80,.1);">MA20</button>
+        <span style="font-size:10px;color:var(--tx3);margin-left:6px;">指標：</span>
         <button class="ind-btn" id="indMACD" onclick="toggleInd('MACD')">MACD</button>
         <button class="ind-btn" id="indRSI" onclick="toggleInd('RSI')">RSI</button>
         <button class="ind-btn" id="indBB" onclick="toggleInd('BB')">布林通道</button>
@@ -1096,6 +1100,7 @@ let prevP={}, dFilter='all', mFilter='all';
 let ws=null, wsOk=false;
 let dChart=null, dCS=null, dVS=null;
 let dMA5=null, dMA10=null, dMA20=null;
+const maOn={5:true,10:true,20:true}; // 均線顯示狀態
 let dVWAP_D=null, dVWAP_W=null;
 let mChart=null, mCS=null, mVS=null;
 let mMA5=null, mMA10=null, mMA20=null;
@@ -1636,20 +1641,42 @@ function applyMA(ma5s,ma10s,ma20s,candles,legendId){
   const seen=new Set();
   const clean=candles.filter(c=>{if(seen.has(c.time))return false;seen.add(c.time);return true;}).sort((a,b)=>a.time-b.time);
   try{
-    ma5s.setData(calcMA(clean,5));
-    ma10s.setData(calcMA(clean,10));
-    ma20s.setData(calcMA(clean,20));
+    const d5=calcMA(clean,5),d10=calcMA(clean,10),d20=calcMA(clean,20);
+    ma5s._lastData=d5;ma10s._lastData=d10;ma20s._lastData=d20;
+    ma5s.setData(maOn[5]?d5:[]);
+    ma10s.setData(maOn[10]?d10:[]);
+    ma20s.setData(maOn[20]?d20:[]);
     const leg=g(legendId);if(leg)leg.style.display='flex';
-    // update legend values
-    const last=clean[clean.length-1];
-    const m5=calcMA(clean,5),m10=calcMA(clean,10),m20=calcMA(clean,20);
     if(legendId==='maLegend'){
       const v5=g('ma5val'),v10=g('ma10val'),v20=g('ma20val');
-      if(v5&&m5.length)v5.textContent=m5[m5.length-1].value;
-      if(v10&&m10.length)v10.textContent=m10[m10.length-1].value;
-      if(v20&&m20.length)v20.textContent=m20[m20.length-1].value;
+      if(v5&&d5.length)v5.textContent=d5[d5.length-1].value;
+      if(v10&&d10.length)v10.textContent=d10[d10.length-1].value;
+      if(v20&&d20.length)v20.textContent=d20[d20.length-1].value;
+      // 同步 legend 透明度
+      const tags=document.querySelectorAll('#maLegend .ma-tag');
+      [5,10,20].forEach((n,i)=>{if(tags[i])tags[i].style.opacity=maOn[n]?'1':'0.3';});
     }
   }catch(e){}
+}
+function toggleMA(n){
+  maOn[n]=!maOn[n];
+  const colors={5:'#f0a500',10:'#3a7bff',20:'#e05050'};
+  const btn=g(`maBtn${n}`);
+  if(btn){
+    if(maOn[n]){btn.classList.add('on');btn.style.borderColor=colors[n];btn.style.color=colors[n];btn.style.background=`${colors[n]}1a`;}
+    else{btn.classList.remove('on');btn.style.borderColor='';btn.style.color='';btn.style.background='';}
+  }
+  const empty=[];
+  // desktop
+  const ms={5:dMA5,10:dMA10,20:dMA20};
+  if(ms[n]){try{ms[n].setData(maOn[n]?ms[n]._lastData||[]:empty);}catch(e){}}
+  // mobile
+  const mm={5:mMA5,10:mMA10,20:mMA20};
+  if(mm[n]){try{mm[n].setData(maOn[n]?mm[n]._lastData||[]:empty);}catch(e){}}
+  // legend tag
+  const tagMap={5:0,10:1,20:2};
+  const tags=document.querySelectorAll('#maLegend .ma-tag');
+  if(tags[tagMap[n]])tags[tagMap[n]].style.opacity=maOn[n]?'1':'0.3';
 }
 function applyCandles(cs,vs,raw){
   if(!cs||!vs||!raw)return;
