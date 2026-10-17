@@ -1153,12 +1153,21 @@ async function twseQ(code,ex='tse'){
       change:chg,changePct:prev?chg/prev*100:0,isLive:false,ex};
   }catch(e){return null;}
 }
-// 自動試上市(tse)再試上櫃(otc)，同時嘗試 twse 收盤資料 API 作為備援
-async function getQ(code){
-  if(!isDemo&&apiKey){const r=await fugleQ(code);if(r)return r;}
-  const tse=await twseQ(code,'tse');if(tse)return tse;
-  const otc=await twseQ(code,'otc');if(otc)return otc;
-  // 備援：用 TWSE 個股收盤資料驗證（盤後/週末仍可查到）
+// 從 TWSE 收盤資料取股名（title 格式：「臺灣證券交易所 3450 聯鈞 各日成交資訊」）
+function parseNameFromTitle(title,code){
+  if(!title)return null;
+  // 移除「臺灣證券交易所」和代號後取名稱
+  const parts=title.replace(/臺灣證券交易所|臺灣櫃買中心/g,'').trim().split(/\s+/);
+  // parts[0]=代號, parts[1]=名稱
+  const idx=parts.findIndex(p=>p===code||p.replace(/\D/g,'')===code);
+  if(idx>=0&&parts[idx+1])return parts[idx+1];
+  // fallback: 找第一個非數字、非常見後綴的詞
+  return parts.find(p=>p&&!/^\d+$/.test(p)&&p!=='各日成交資訊'&&p!=='日成交資訊')||null;
+}
+
+// 專門查股票名稱（盤後/週末也能用）
+async function fetchStockName(code){
+  // 先試 TWSE 上市
   try{
     const n=new Date();
     let d2=new Date(n);
@@ -1168,11 +1177,42 @@ async function getQ(code){
     const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?response=json&date=${ds}&stockNo=${code}&_=${Date.now()}`);
     const j=await r.json();
     if(j.stat==='OK'&&j.data?.length){
-      const last=j.data[j.data.length-1];
-      const prev=parseFloat(last[6].replace(/,/g,''))||0; // 收盤價
-      return{code,name:j.title?.split(' ')?.[1]||NAMES[code]||code,price:prev,open:parseFloat(last[3].replace(/,/g,''))||0,
-        high:parseFloat(last[4].replace(/,/g,''))||0,low:parseFloat(last[5].replace(/,/g,''))||0,prev,
-        vol:parseInt(last[1].replace(/,/g,''))||0,bid:0,ask:0,change:0,changePct:0,isLive:false,ex:'tse'};
+      const name=parseNameFromTitle(j.title,code);
+      if(name)return{name,ex:'tse',data:j.data};
+    }
+  }catch(e){}
+  // 再試 TPEx 上櫃
+  try{
+    const r2=await fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${new Date().toISOString().slice(0,10).replace(/-/g,'/')}&stockNo=${code}`);
+    const j2=await r2.json();
+    if(j2?.length){
+      const row=j2.find(x=>x.SecuritiesCompanyCode===code||x['股票代號']===code);
+      if(row){const name=row['股票名稱']||row.CompanyName;if(name)return{name,ex:'otc',data:null};}
+    }
+  }catch(e){}
+  return null;
+}
+
+// 自動試上市(tse)再試上櫃(otc)，同時嘗試 twse 收盤資料 API 作為備援
+async function getQ(code){
+  if(!isDemo&&apiKey){const r=await fugleQ(code);if(r){if(!NAMES[code]&&r.name&&r.name!==code)NAMES[code]=r.name;return r;}}
+  const tse=await twseQ(code,'tse');if(tse){if(!NAMES[code]&&tse.name&&tse.name!==code)NAMES[code]=tse.name;return tse;}
+  const otc=await twseQ(code,'otc');if(otc){if(!NAMES[code]&&otc.name&&otc.name!==code)NAMES[code]=otc.name;return otc;}
+  // 備援：TWSE/TPEx 收盤資料（盤後/週末仍可查）
+  try{
+    const nameResult=await fetchStockName(code);
+    if(nameResult){
+      if(nameResult.name)NAMES[code]=nameResult.name;
+      let prev=0,open=0,high=0,low=0,vol=0;
+      if(nameResult.data?.length){
+        const last=nameResult.data[nameResult.data.length-1];
+        prev=parseFloat(last[6]?.replace(/,/g,''))||0;
+        open=parseFloat(last[3]?.replace(/,/g,''))||0;
+        high=parseFloat(last[4]?.replace(/,/g,''))||0;
+        low=parseFloat(last[5]?.replace(/,/g,''))||0;
+        vol=parseInt(last[1]?.replace(/,/g,''))||0;
+      }
+      return{code,name:NAMES[code]||code,price:prev,open,high,low,prev,vol,bid:0,ask:0,change:0,changePct:0,isLive:false,ex:nameResult.ex};
     }
   }catch(e){}
   return null;
