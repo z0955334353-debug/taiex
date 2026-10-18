@@ -410,20 +410,42 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .m-tab.on .m-ico-wrap{
   background:rgba(240,165,0,.12);
   border-radius:12px;
-  padding:4px 18px;
+  padding:4px 20px;
 }
-.m-ico-wrap{padding:4px 18px;border-radius:12px;transition:background .15s;}
-.m-ico{font-size:22px;line-height:1;display:block;}
+.m-ico-wrap{padding:4px 20px;border-radius:12px;transition:background .15s;}
+.m-ico{width:24px;height:24px;display:block;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+/* ── 手機大盤雙卡 ── */
+.m-idx-cards{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  padding:10px 14px 0;
+}
+.m-idx-card{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:12px;
+  padding:10px 12px;
+}
+.m-idx-card-lbl{
+  font-size:10px;color:var(--tx3);letter-spacing:.08em;font-weight:600;
+  margin-bottom:4px;
+}
+.m-idx-card-val{
+  font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;
+  line-height:1.1;letter-spacing:-.01em;
+}
+.m-idx-card-chg{
+  font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:3px;
+  font-weight:600;
+}
 
 /* ── 手機觀察清單 ── */
 .m-wl-header{
-  padding:16px 16px 10px;
+  padding:10px 14px 10px;
   background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%);
   flex-shrink:0;
   border-bottom:1px solid var(--b);
 }
-.m-wl-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.m-wl-title{font-size:20px;font-weight:700;letter-spacing:.02em;}
+.m-wl-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.m-wl-title{font-size:18px;font-weight:700;letter-spacing:.02em;}
 .m-wl-sub{font-size:11px;color:var(--tx3);}
 .m-wl-top{
   display:flex;gap:8px;flex-shrink:0;position:relative;
@@ -473,27 +495,33 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .m-wl-list{flex:1;overflow-y:auto;padding-bottom:80px;}
 .m-wl-row{
   display:flex;align-items:center;
-  padding:11px 16px;
+  padding:12px 14px;
   border-bottom:1px solid var(--b);
   cursor:pointer;gap:10px;
   transition:background .12s;
-  min-height:62px;
+  min-height:68px;
+  position:relative;
 }
-.m-wl-row:active{background:var(--bg3);}
-.m-wl-row.m-sel{background:var(--bg3);border-left:3px solid var(--gold);}
+.m-wl-row:active{background:rgba(255,200,60,.04);}
+.m-wl-row.m-sel{background:var(--bg3);}
+.m-wl-row.m-sel::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--gold);border-radius:0 2px 2px 0;
+}
 .m-wl-l{flex:1;min-width:0;}
 .m-wl-code{
-  font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
-  margin-bottom:3px;display:flex;align-items:center;gap:5px;letter-spacing:.02em;
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+  margin-bottom:3px;display:flex;align-items:center;gap:6px;letter-spacing:.02em;
 }
-.m-wl-name{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
-.m-wl-r{text-align:right;flex-shrink:0;min-width:90px;}
-.m-wl-price{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-bottom:3px;line-height:1.1;}
+.m-wl-name{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;margin-top:1px;}
+.m-wl-r{text-align:right;flex-shrink:0;min-width:96px;}
+.m-wl-price{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;margin-bottom:4px;line-height:1.1;}
 .m-wl-pct{
-  font-family:'JetBrains Mono',monospace;font-size:11px;
-  padding:2px 8px;border-radius:5px;display:inline-block;font-weight:600;
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  padding:3px 9px;border-radius:6px;display:inline-block;font-weight:700;
+  letter-spacing:.02em;
 }
-.m-wl-chg{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-top:1px;}
+.m-wl-chg{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-top:2px;}
 
 /* ── 手機個股詳情 ── */
 .m-det-header{
@@ -958,13 +986,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 
   <!-- 觀察清單頁 -->
   <div class="m-screen show" id="ms-wl">
+    <!-- 雙大盤卡片 -->
+    <div class="m-idx-cards" id="mIdxBadge">
+      <div class="m-idx-card">
+        <div class="m-idx-card-lbl">加權指數</div>
+        <div class="m-idx-card-val fl" id="mIdxTwVal">——</div>
+        <div class="m-idx-card-chg fl" id="mIdxTwChg">——</div>
+      </div>
+      <div class="m-idx-card">
+        <div class="m-idx-card-lbl">櫃買指數</div>
+        <div class="m-idx-card-val fl" id="mIdxOtcVal">——</div>
+        <div class="m-idx-card-chg fl" id="mIdxOtcChg">——</div>
+      </div>
+    </div>
     <div class="m-wl-header">
       <div class="m-wl-title-row">
         <div>
           <div class="m-wl-title">觀察清單</div>
           <div class="m-wl-sub" id="mWlSub">—</div>
         </div>
-        <div id="mIdxBadge" style="text-align:right;font-family:'JetBrains Mono',monospace;"></div>
       </div>
       <div class="m-wl-top">
         <input class="m-wl-inp" id="mWlInp" placeholder="輸入代號或股票名稱…" maxlength="10" autocomplete="off">
@@ -1051,15 +1091,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
   <!-- 底部導覽 -->
   <div class="m-nav">
     <button class="m-tab on" id="mnav-wl" onclick="mShow('wl')">
-      <div class="m-ico-wrap"><span class="m-ico">⭐</span></div>
+      <div class="m-ico-wrap">
+        <svg class="m-ico" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1.5"/><path d="M9 12h6M9 16h4"/></svg>
+      </div>
       <span>清單</span>
     </button>
     <button class="m-tab" id="mnav-det" onclick="mShow('det')">
-      <div class="m-ico-wrap"><span class="m-ico">📈</span></div>
+      <div class="m-ico-wrap">
+        <svg class="m-ico" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      </div>
       <span>個股</span>
     </button>
     <button class="m-tab" id="mnav-scr" onclick="mShow('scr')">
-      <div class="m-ico-wrap"><span class="m-ico">🔍</span></div>
+      <div class="m-ico-wrap">
+        <svg class="m-ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      </div>
       <span>選股</span>
     </button>
   </div>
@@ -1514,6 +1560,9 @@ async function fetchIndex(){
       const chg=val-prev,pct=prev?chg/prev*100:0,cc=chg>0?'up':chg<0?'dn':'fl';
       setEl('iVal',val.toFixed(2),`idx-val ${cc}`);
       setEl('iChg',`${chg>=0?'+':''}${chg.toFixed(2)} (${pct>=0?'+':''}${pct.toFixed(2)}%)`,`idx-chg ${cc}`);
+      // mobile dual cards
+      setEl('mIdxTwVal',val.toFixed(2),`m-idx-card-val ${cc}`);
+      setEl('mIdxTwChg',`${chg>=0?'+':''}${chg.toFixed(2)} (${pct>=0?'+':''}${pct.toFixed(2)}%)`,`m-idx-card-chg ${cc}`);
     }
   }catch(e){}
   try{
@@ -1521,9 +1570,12 @@ async function fetchIndex(){
     const j=await r.json();
     if(j.msgArray?.length){
       const d=j.msgArray[0],val=parseFloat(d.z)||parseFloat(d.y)||0,prev=parseFloat(d.y)||0;
-      const chg=val-prev,cc=chg>0?'up':chg<0?'dn':'fl';
+      const chg=val-prev,pct2=prev?chg/prev*100:0,cc=chg>0?'up':chg<0?'dn':'fl';
       setEl('iOtc',val.toFixed(2),`idx-val ${cc}`);
       setEl('iOtcC',`${chg>=0?'+':''}${chg.toFixed(2)}`,`idx-chg ${cc}`);
+      // mobile dual cards
+      setEl('mIdxOtcVal',val.toFixed(2),`m-idx-card-val ${cc}`);
+      setEl('mIdxOtcChg',`${chg>=0?'+':''}${chg.toFixed(2)} (${pct2>=0?'+':''}${pct2.toFixed(2)}%)`,`m-idx-card-chg ${cc}`);
     }
   }catch(e){}
   try{
@@ -1596,24 +1648,26 @@ function renderWL(){
     if(mFilter==='vol'&&(!d||d.vol<10000))return;
     const row=document.createElement('div');
     row.className='m-wl-row'+(code===active?' m-sel':'');row.id=`mwr-${code}`;row.onclick=()=>{selectStock(code);mShow('det');};
+    if(d&&d.change>0)row.style.borderLeft='3px solid var(--up)';
+    else if(d&&d.change<0)row.style.borderLeft='3px solid var(--dn)';
+    else row.style.borderLeft='3px solid transparent';
     const cc=d?cc3(d.change):'fl',bg=d?bg3(d.change):'',sign=d&&d.change>0?'+':'';
     const priceStr=d?fmtPrice(d):'——';
     const chgStr=d&&d.change!==0?`${sign}${fmtPrice({...d,price:Math.abs(d.change)})} (${sign}${d.changePct.toFixed(2)}%)`:'';
     const noData=!d||!d.price;
+    const liveDot=d?.isLive?'<span style="width:5px;height:5px;border-radius:50%;background:var(--up);display:inline-block;animation:blink 1.6s infinite;margin-left:3px;vertical-align:middle;"></span>':'';
+    const closeBadge=d&&!d.isLive&&d.price?'<span style="font-size:9px;color:var(--tx3);font-family:\'Noto Sans TC\',sans-serif;font-weight:400;letter-spacing:0;background:var(--bg4);padding:1px 5px;border-radius:4px;margin-left:4px;">收</span>':'';
     row.innerHTML=`
       <div class="m-wl-l">
-        <div class="m-wl-code ${noData?'fl':cc}">
-          ${code}
-          ${d?.isLive?'<span style="width:5px;height:5px;border-radius:50%;background:var(--up);display:inline-block;animation:blink 1.6s infinite;margin-left:2px;"></span>':''}
-          ${d&&!d.isLive&&d.price?'<span style="font-size:8px;color:var(--tx3);font-family:\'Noto Sans TC\',sans-serif;font-weight:400;letter-spacing:0;">收盤</span>':''}
-        </div>
+        <div class="m-wl-code ${noData?'fl':cc}">${code}${liveDot}${closeBadge}</div>
         <div class="m-wl-name">${NAMES[code]||d?.name||'讀取中…'}</div>
       </div>
       <div class="m-wl-r">
         <div class="m-wl-price ${noData?'fl':cc}">${priceStr}</div>
-        ${d&&d.price?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`
-          :`<div style="font-size:10px;color:var(--tx3);">讀取中</div>`}
-        ${chgStr?`<div class="m-wl-chg ${cc}">${chgStr}</div>`:''}
+        ${d&&d.price
+          ?`<div class="m-wl-pct ${cc} ${bg}">${sign}${d.changePct.toFixed(2)}%</div>`
+          :`<div style="font-size:10px;color:var(--tx3);margin-top:4px;">讀取中</div>`}
+        ${chgStr?`<div class="m-wl-chg">${chgStr}</div>`:''}
       </div>
     `;
     ml.appendChild(row);
