@@ -2248,10 +2248,30 @@ async function runScan(containerId){
   const resId=isMobile?'mScrResults':'dScrResults';
   g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--tx3);">篩選中...</div>`;
   try{
-    const n=new Date(),ds=`${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}`;
-    const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?date=${ds}&response=json&_=${Date.now()}`);
-    const j=await r.json();
-    if(j.stat!=='OK'||!j.data){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--dn);">無法取得資料</div>`;return;}
+    // 找最近交易日（週末往前推，最多回退7天）
+    function lastTradingDate(){
+      const d=new Date();
+      for(let i=0;i<7;i++){
+        const day=d.getDay();
+        if(day!==0&&day!==6)return d;
+        d.setDate(d.getDate()-1);
+      }
+      return d;
+    }
+    async function fetchScanData(date){
+      const ds=`${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}`;
+      const r=await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?date=${ds}&response=json&_=${Date.now()}`);
+      return r.json();
+    }
+    let j=await fetchScanData(lastTradingDate());
+    // 若當日無盤後資料（盤中或API還沒更新），往前一交易日再試
+    if(j.stat!=='OK'||!j.data){
+      const prev=lastTradingDate();prev.setDate(prev.getDate()-1);
+      // 跳過週末
+      while(prev.getDay()===0||prev.getDay()===6)prev.setDate(prev.getDate()-1);
+      j=await fetchScanData(prev);
+    }
+    if(j.stat!=='OK'||!j.data){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--dn);">無法取得資料，請稍後再試</div>`;return;}
     const results=j.data.filter(row=>{
       const code=row[0],price=parseFloat((row[4]||'').replace(/,/g,'')),vol=parseFloat((row[1]||'').replace(/,/g,''));
       if(isNaN(price)||price<pMin||price>pMax)return false;
