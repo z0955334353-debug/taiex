@@ -2123,7 +2123,8 @@ async function addStockCore(code){
   if(!isFutures(code)&&(code.length<4||code.length>6)){toast('代號應為4-6碼（如 2330、00878）或期貨代號（TX、MTX）');return;}
   if(wl.includes(code)){toast(`${code} 已在清單中`);selectStock(code);return;}
   toast(`查詢 ${code} 中...`);
-  wl.push(code);renderWL();
+  wl.push(code);renderWL();saveWL();
+  toast(`⏳ 新增 ${code} 中…`);
   const d=await getQ(code);
   if(d){
     if(!NAMES[code]&&d.name)NAMES[code]=d.name;
@@ -2132,8 +2133,8 @@ async function addStockCore(code){
     if(!isDemo&&wsOk)wsSub(code);
     saveWL();
   } else {
-    wl=wl.filter(c=>c!==code);renderWL();
-    toast(`❌ 找不到 ${code}，請確認代號是否正確`);
+    // 查不到行情，但仍保留在清單（以代號顯示），等盤中再自動更新
+    toast(`✅ 已新增 ${NAMES[code]||code}（行情待更新）`);
   }
 }
 function addStock(){const v=g('wlInp').value;g('wlInp').value='';addStockCore(v);}
@@ -2807,15 +2808,32 @@ function searchStock(q){
 
 function renderAcDrop(dropEl,results,inpEl,isMobile){
   if(!dropEl)return;
-  if(!results.length){dropEl.classList.remove('show');return;}
   const cls=isMobile?'m-ac':'ac';
-  dropEl.innerHTML=results.map((s,i)=>
-    `<div class="${cls}-item${i===acSelIdx?' sel':''}" onmousedown="pickAc('${s.code}','${inpEl.id}')" >
+  const q=(inpEl?.value||'').trim();
+  const rows=[];
+
+  // 搜尋結果
+  results.forEach((s,i)=>{
+    rows.push(`<div class="${cls}-item${i===acSelIdx?' sel':''}" onmousedown="pickAc('${s.code}','${inpEl.id}')">
       <span class="${cls}-code">${s.code}</span>
       <span class="${cls}-name">${s.name}</span>
       ${s.ex?`<span class="${cls}-exbadge">${s.ex}</span>`:''}
-    </div>`
-  ).join('');
+    </div>`);
+  });
+
+  // 如果輸入看起來像代號（4-6位數字），且搜尋結果中沒有完全符合的，加「直接加入」選項
+  const looksLikeCode=/^\d{4,6}$/.test(q);
+  const exactMatch=results.find(s=>s.code===q);
+  if(looksLikeCode&&!exactMatch){
+    rows.push(`<div class="${cls}-item" style="border-top:1px solid rgba(255,255,255,0.08);opacity:.85"
+      onmousedown="pickAc('${q}','${inpEl.id}')">
+      <span class="${cls}-code">${q}</span>
+      <span class="${cls}-name" style="color:var(--gold)">直接加入代號</span>
+    </div>`);
+  }
+
+  if(!rows.length){dropEl.classList.remove('show');return;}
+  dropEl.innerHTML=rows.join('');
   dropEl.classList.add('show');
 }
 
