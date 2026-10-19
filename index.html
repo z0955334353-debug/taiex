@@ -2705,43 +2705,60 @@ setInterval(scheduleInstCheck,60000);
 // ════════════════════════════════════════
 let stockDB=[]; // [{code,name,ex}]
 let acSelIdx=-1;
+let _dbTwseLoaded=false,_dbTpexLoaded=false;
 
 async function loadStockDB(){
-  if(stockDB.length>100)return; // 已有足夠資料就跳過
-  try{
-    // TWSE 上市（STOCK_DAY_ALL 週末也有資料）
-    const r1=await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
-    const j1=await r1.json();
-    if(Array.isArray(j1))j1.forEach(s=>{
-      if(s.Code&&s.Name)stockDB.push({code:s.Code,name:s.Name.trim(),ex:'上市'});
-    });
-  }catch(e){}
-  try{
-    // TPEx 上櫃（列表 API，週末仍有全量清單）
-    const r2=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes');
-    const j2=await r2.json();
-    if(Array.isArray(j2)&&j2.length>0){
-      j2.forEach(s=>{
-        const code=s.SecuritiesCompanyCode||s['股票代號'];
-        const name=(s.CompanyName||s['股票名稱']||'').trim();
-        if(code&&name&&!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:'上櫃'});
-      });
-    } else {
-      // 備援：perday_quotes
-      const r2b=await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
-      const j2b=await r2b.json();
-      if(Array.isArray(j2b))j2b.forEach(s=>{
-        const code=s.SecuritiesCompanyCode||s['股票代號'];
-        const name=(s.CompanyName||s['股票名稱']||'').trim();
-        if(code&&name&&!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:'上櫃'});
-      });
-    }
-  }catch(e){}
+  // 分開追蹤上市/上櫃，確保兩個都有嘗試過
+  const needTwse=!_dbTwseLoaded;
+  const needTpex=!_dbTpexLoaded;
+  if(!needTwse&&!needTpex)return;
+
+  function fetchTimeout(url,ms=8000){
+    return Promise.race([
+      fetch(url).then(r=>r.json()),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
+    ]);
+  }
+
+  if(needTwse){
+    try{
+      // TWSE 上市
+      const j1=await fetchTimeout('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
+      if(Array.isArray(j1)&&j1.length>100){
+        j1.forEach(s=>{
+          if(s.Code&&s.Name&&!stockDB.find(x=>x.code===s.Code))
+            stockDB.push({code:s.Code,name:s.Name.trim(),ex:'上市'});
+        });
+        _dbTwseLoaded=true;
+      }
+    }catch(e){}
+  }
+
+  if(needTpex){
+    try{
+      // TPEx 上櫃主板即時報價（有完整名稱）
+      let j2=await fetchTimeout('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes');
+      if(!Array.isArray(j2)||j2.length<10){
+        // 備援：perday_quotes
+        j2=await fetchTimeout('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
+      }
+      if(Array.isArray(j2)&&j2.length>10){
+        j2.forEach(s=>{
+          const code=(s.SecuritiesCompanyCode||s['股票代號']||'').trim();
+          const name=(s.CompanyName||s['股票名稱']||'').trim();
+          if(code&&name&&!stockDB.find(x=>x.code===code))
+            stockDB.push({code,name,ex:'上櫃'});
+        });
+        _dbTpexLoaded=true;
+      }
+    }catch(e){}
+  }
+
   // 補入期貨
   Object.entries(FUT_MAP).forEach(([code,info])=>{
     if(!stockDB.find(x=>x.code===code))stockDB.push({code,name:info.name,ex:'期貨'});
   });
-  // 補入已知的 NAMES
+  // 補入已知 NAMES（包含使用者自行加過的股票）
   Object.entries(NAMES).forEach(([code,name])=>{
     if(!stockDB.find(x=>x.code===code))stockDB.push({code,name,ex:''});
   });
@@ -2751,14 +2768,14 @@ function searchStock(q){
   if(!q||q.length<1)return[];
   const lq=q.toLowerCase();
   const exact=[],prefix=[],nameMatch=[];
+  // 全量搜尋，不在迴圈內 break，確保上櫃也能搜到
   for(const s of stockDB){
     const codeL=s.code.toLowerCase();
     if(codeL===lq||s.code===q)exact.push(s);
     else if(codeL.startsWith(lq)||s.code.startsWith(q))prefix.push(s);
     else if(s.name.includes(q)||s.name.toLowerCase().includes(lq))nameMatch.push(s);
-    if(exact.length+prefix.length+nameMatch.length>=12)break;
   }
-  return [...exact,...prefix,...nameMatch].slice(0,8);
+  return [...exact,...prefix,...nameMatch].slice(0,10);
 }
 
 function renderAcDrop(dropEl,results,inpEl,isMobile){
@@ -2824,7 +2841,14 @@ function setupAc(inpId,dropId,isMobile){
 // ════════════════════════════════════════
 setupAc('wlInp','acDrop',false);
 setupAc('mWlInp','mAcDrop',true);
-setTimeout(loadStockDB,2000); // 背景靜默載入股票清單
+// 啟動後立即載入，失敗 10 秒後重試一次，確保上市+上櫃都有
+setTimeout(async()=>{
+  await loadStockDB();
+  // 如果上市或上櫃其中一個沒載到，10 秒後再試
+  if(!_dbTwseLoaded||!_dbTpexLoaded){
+    setTimeout(loadStockDB,10000);
+  }
+},1500);
 
 // ════════════════════════════════════════
 // NOTIFICATION
