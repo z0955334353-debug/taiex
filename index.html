@@ -2868,7 +2868,20 @@ setTimeout(async()=>{
   if(!_dbTwseLoaded||!_dbTpexLoaded){
     setTimeout(loadStockDB,10000);
   }
+  console.log(`[StockDB] 上市:${_dbTwseLoaded} 上櫃:${_dbTpexLoaded} 共${stockDB.length}筆`);
 },1500);
+
+// debug: 在 console 輸入 dbg() 可查看載入狀態
+window.dbg=function(){
+  console.log('=== StockDB Debug ===');
+  console.log('上市載入:',_dbTwseLoaded,'上櫃載入:',_dbTpexLoaded,'總筆數:',stockDB.length);
+  const otc=stockDB.filter(x=>x.ex==='上櫃');
+  const tse=stockDB.filter(x=>x.ex==='上市');
+  console.log('上市筆數:',tse.length,'上櫃筆數:',otc.length);
+  console.log('搜尋富喬:',searchStock('富喬'));
+  console.log('搜尋1815:',searchStock('1815'));
+  return {twse:tse.length,tpex:otc.length,total:stockDB.length};
+};
 
 // ════════════════════════════════════════
 // NOTIFICATION
