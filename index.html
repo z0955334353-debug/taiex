@@ -2167,7 +2167,7 @@ function renderDScr(){
     </div>
     <div class="scr-lbl">成交量（張以上）</div>
     <div class="scr-range">
-      <input class="scr-inp" id="dScrVMin" value="1000" style="width:100%">
+      <input class="scr-inp" id="dScrVMin" value="500" style="width:100%">
     </div>
     <div class="scr-lbl">排除</div>
     <div class="scr-chips">
@@ -2216,7 +2216,7 @@ function renderMScr(){
       <input class="m-scr-inp" id="mScrPMax" value="300" placeholder="最高">
     </div>
     <div class="m-scr-lbl">成交量門檻（張以上）</div>
-    <input class="m-scr-inp" id="mScrVMin" value="1000" style="width:100%;margin-bottom:6px">
+    <input class="m-scr-inp" id="mScrVMin" value="500" style="width:100%;margin-bottom:6px">
     <div class="m-scr-lbl">排除條件</div>
     <div class="m-chips">
       <button class="mchip on" id="mex-bank" onclick="this.classList.toggle('on')">金融股</button>
@@ -2272,19 +2272,30 @@ async function runScan(containerId){
       j=await fetchScanData(prev);
     }
     if(j.stat!=='OK'||!j.data){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--dn);">無法取得資料，請稍後再試</div>`;return;}
+    // STOCK_DAY_ALL 欄位: [0]代號 [1]名稱 [2]成交股數 [3]成交金額 [4]開盤 [5]最高 [6]最低 [7]收盤 [8]漲跌 [9]漲跌幅%
     const results=j.data.filter(row=>{
-      const code=row[0],price=parseFloat((row[4]||'').replace(/,/g,'')),vol=parseFloat((row[1]||'').replace(/,/g,''));
+      const code=row[0];
+      const price=parseFloat((row[7]||'').replace(/,/g,''));   // 收盤
+      const volShares=parseFloat((row[2]||'').replace(/,/g,'')); // 成交股數（股）
+      const volLot=volShares/1000; // 換算成張
       if(isNaN(price)||price<pMin||price>pMax)return false;
-      if(isNaN(vol)||vol<vMin)return false;
+      if(isNaN(volLot)||volLot<vMin)return false;
       if(exBank&&BANK.includes(code))return false;
       if(exEtf&&(code.startsWith('00')||code.length>4))return false;
       return true;
-    }).sort((a,b)=>(parseFloat((b[1]||'').replace(/,/g,''))||0)-(parseFloat((a[1]||'').replace(/,/g,''))||0)).slice(0,25).map(row=>{
-      const code=row[0],price=parseFloat((row[4]||'').replace(/,/g,'')),
-            vol=parseFloat((row[1]||'').replace(/,/g,''))||0,
-            chgPct=parseFloat((row[9]||'').replace(/[+%]/g,''))||0,
-            chg=parseFloat((row[8]||'').replace(/,/g,'').replace(/[+]/g,''))||0;
-      return{code,name:NAMES[code]||code,price,vol,chg,chgPct};
+    }).sort((a,b)=>{
+      // 依成交股數由大到小排
+      const vA=parseFloat((a[2]||'').replace(/,/g,''))||0;
+      const vB=parseFloat((b[2]||'').replace(/,/g,''))||0;
+      return vB-vA;
+    }).slice(0,30).map(row=>{
+      const code=row[0],name=row[1]||NAMES[code]||code;
+      const price=parseFloat((row[7]||'').replace(/,/g,''));
+      const volLot=Math.round(parseFloat((row[2]||'0').replace(/,/g,''))/1000);
+      const chgPct=parseFloat((row[9]||'0').replace(/[+%]/g,''))||0;
+      const chg=parseFloat((row[8]||'0').replace(/,/g,'').replace(/[+]/g,''))||0;
+      if(!NAMES[code]&&name)NAMES[code]=name;
+      return{code,name,price,vol:volLot,chg,chgPct};
     });
     if(!results.length){g(resId).innerHTML=`<div style="text-align:center;padding:14px;font-size:11px;color:var(--tx3);">無符合條件個股</div>`;return;}
     const cardClass=isMobile?'m-scr-card':'scr-card';
