@@ -2708,27 +2708,40 @@ let acSelIdx=-1;
 let _dbTwseLoaded=false,_dbTpexLoaded=false;
 
 async function loadStockDB(){
-  // 分開追蹤上市/上櫃，確保兩個都有嘗試過
   const needTwse=!_dbTwseLoaded;
   const needTpex=!_dbTpexLoaded;
   if(!needTwse&&!needTpex)return;
 
-  function fetchTimeout(url,ms=8000){
+  function fetchTimeout(url,ms=12000){
     return Promise.race([
       fetch(url).then(r=>r.json()),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
     ]);
   }
 
-  if(needTwse){
-    // 依序嘗試 TWSE 多個 API
+  // ── 優先：透過自己的 Vercel proxy（在伺服器端抓，無 CORS 問題）
+  try{
+    const proxy=await fetchTimeout('/api/stocks',15000);
+    if(proxy&&proxy.total>100){
+      (proxy.twse||[]).forEach(s=>{
+        if(s.code&&s.name&&!stockDB.find(x=>x.code===s.code))
+          stockDB.push({code:s.code,name:s.name,ex:'上市'});
+      });
+      (proxy.tpex||[]).forEach(s=>{
+        if(s.code&&s.name&&!stockDB.find(x=>x.code===s.code))
+          stockDB.push({code:s.code,name:s.name,ex:'上櫃'});
+      });
+      if(proxy.twse?.length>100)_dbTwseLoaded=true;
+      if(proxy.tpex?.length>10)_dbTpexLoaded=true;
+      console.log(`[StockDB] proxy OK: 上市${proxy.twse?.length} 上櫃${proxy.tpex?.length}`);
+    }
+  }catch(e){console.warn('[StockDB] proxy failed, fallback to direct APIs',e.message);}
+
+  // ── 備援：直接呼叫原始 API（proxy 失敗時用）
+  if(!_dbTwseLoaded){
     const twseApis=[
-      // 每日全市場報價（最常用，有完整代號+名稱）
       {url:'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL',codeKey:'Code',nameKey:'Name'},
-      // 上市股票基本資料（不依賴交易日，全年有效）
       {url:'https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_d',codeKey:'Code',nameKey:'Name'},
-      // 上市公司列表
-      {url:'https://openapi.twse.com.tw/v1/company/getStockInfoByIndustry',codeKey:'公司代號',nameKey:'公司簡稱'},
     ];
     for(const api of twseApis){
       try{
@@ -2740,18 +2753,13 @@ async function loadStockDB(){
             if(code&&name&&!stockDB.find(x=>x.code===code))
               stockDB.push({code,name,ex:'上市'});
           });
-          _dbTwseLoaded=true;
-          break;
+          _dbTwseLoaded=true;break;
         }
       }catch(e){}
     }
   }
 
-  if(needTpex){
-    // 依序嘗試三個 TPEx API，任一成功即可
-    // 1. 每日收盤報價（最穩定，盤後/週末都有）
-    // 2. 每日收盤備援
-    // 3. 即時報價（盤中最新，盤後可能空）
+  if(!_dbTpexLoaded){
     const tpexApis=[
       'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes',
       'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
@@ -2767,8 +2775,7 @@ async function loadStockDB(){
             if(code&&name&&!stockDB.find(x=>x.code===code))
               stockDB.push({code,name,ex:'上櫃'});
           });
-          _dbTpexLoaded=true;
-          break; // 成功就不再試下一個
+          _dbTpexLoaded=true;break;
         }
       }catch(e){}
     }
