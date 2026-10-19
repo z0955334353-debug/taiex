@@ -2721,37 +2721,57 @@ async function loadStockDB(){
   }
 
   if(needTwse){
-    try{
-      // TWSE 上市
-      const j1=await fetchTimeout('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
-      if(Array.isArray(j1)&&j1.length>100){
-        j1.forEach(s=>{
-          if(s.Code&&s.Name&&!stockDB.find(x=>x.code===s.Code))
-            stockDB.push({code:s.Code,name:s.Name.trim(),ex:'上市'});
-        });
-        _dbTwseLoaded=true;
-      }
-    }catch(e){}
+    // 依序嘗試 TWSE 多個 API
+    const twseApis=[
+      // 每日全市場報價（最常用，有完整代號+名稱）
+      {url:'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL',codeKey:'Code',nameKey:'Name'},
+      // 上市股票基本資料（不依賴交易日，全年有效）
+      {url:'https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_d',codeKey:'Code',nameKey:'Name'},
+      // 上市公司列表
+      {url:'https://openapi.twse.com.tw/v1/company/getStockInfoByIndustry',codeKey:'公司代號',nameKey:'公司簡稱'},
+    ];
+    for(const api of twseApis){
+      try{
+        const j1=await fetchTimeout(api.url,10000);
+        if(Array.isArray(j1)&&j1.length>100){
+          j1.forEach(s=>{
+            const code=(s[api.codeKey]||'').trim();
+            const name=(s[api.nameKey]||'').trim();
+            if(code&&name&&!stockDB.find(x=>x.code===code))
+              stockDB.push({code,name,ex:'上市'});
+          });
+          _dbTwseLoaded=true;
+          break;
+        }
+      }catch(e){}
+    }
   }
 
   if(needTpex){
-    try{
-      // TPEx 上櫃主板即時報價（有完整名稱）
-      let j2=await fetchTimeout('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes');
-      if(!Array.isArray(j2)||j2.length<10){
-        // 備援：perday_quotes
-        j2=await fetchTimeout('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes');
-      }
-      if(Array.isArray(j2)&&j2.length>10){
-        j2.forEach(s=>{
-          const code=(s.SecuritiesCompanyCode||s['股票代號']||'').trim();
-          const name=(s.CompanyName||s['股票名稱']||'').trim();
-          if(code&&name&&!stockDB.find(x=>x.code===code))
-            stockDB.push({code,name,ex:'上櫃'});
-        });
-        _dbTpexLoaded=true;
-      }
-    }catch(e){}
+    // 依序嘗試三個 TPEx API，任一成功即可
+    // 1. 每日收盤報價（最穩定，盤後/週末都有）
+    // 2. 每日收盤備援
+    // 3. 即時報價（盤中最新，盤後可能空）
+    const tpexApis=[
+      'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_perday_quotes',
+      'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
+      'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes',
+    ];
+    for(const url of tpexApis){
+      try{
+        const j2=await fetchTimeout(url,10000);
+        if(Array.isArray(j2)&&j2.length>10){
+          j2.forEach(s=>{
+            const code=(s.SecuritiesCompanyCode||s['股票代號']||'').trim();
+            const name=(s.CompanyName||s['股票名稱']||'').trim();
+            if(code&&name&&!stockDB.find(x=>x.code===code))
+              stockDB.push({code,name,ex:'上櫃'});
+          });
+          _dbTpexLoaded=true;
+          break; // 成功就不再試下一個
+        }
+      }catch(e){}
+    }
   }
 
   // 補入期貨
